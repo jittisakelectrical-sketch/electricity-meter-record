@@ -1,1292 +1,610 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>⚡ Tower Meter</title>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-<!-- Firebase SDK v10 (compat mode — ใช้ได้กับ HTML ไม่ต้อง bundler) -->
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-<script>
-// ════════════════════════════════════════════
-// FIREBASE CONFIG — electricity-meter-record
-// ════════════════════════════════════════════
-const firebaseConfig = {
-  apiKey:            "AIzaSyCvwTNI0bZvN5S77Ls1BjxMvemZJ7m2vpo",
-  authDomain:        "electricity-meter-record-3fca8.firebaseapp.com",
-  databaseURL:       "https://electricity-meter-record-3fca8-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId:         "electricity-meter-record-3fca8",
-  storageBucket:     "electricity-meter-record-3fca8.firebasestorage.app",
-  messagingSenderId: "127166460627",
-  appId:             "1:127166460627:web:09eb765da526dce6565a26"
-};
-firebase.initializeApp(firebaseConfig);
-const fbDB = firebase.database();
-</script>
-<style>
-/* ═══ DESIGN TOKENS — DARK MODE (DEFAULT) ═══ */
-:root{
-  --void:#050810;
-  --deep:#090d1a;
-  --panel:#0d1424;
-  --card:#111929;
-  --rim:#1e2d47;
-  --rim2:#253550;
-  --glow:#00d4ff;
-  --glow2:#0099cc;
-  --amber:#f59e0b;
-  --amber2:#d97706;
-  --emerald:#00e87a;
-  --emerald2:#00b85f;
-  --rose:#ff3d5a;
-  --violet:#7c5cfc;
-  --text:#e8eef8;
-  --text2:#94a8c4;
-  --text3:#4a6080;
-  --shadow:0 4px 20px rgba(0,0,0,.4);
-  --topbar-bg:rgba(9,13,26,.96);
-  --bbar-bg:rgba(9,13,26,.97);
-  --prev-bg:rgba(0,0,0,.2);
-  --bot-bg:rgba(0,0,0,.15);
-  --inp-focus-bg:#0a101f;
-  --scanline:rgba(0,212,255,.015);
-  --mono:'JetBrains Mono',monospace;
-  --sans:'Space Grotesk',sans-serif;
-  --r:10px;
-}
-
-/* ═══ LIGHT MODE TOKEN OVERRIDES ═══ */
-[data-theme="light"]{
-  --void:#f0f4f8;
-  --deep:#ffffff;
-  --panel:#f8fafc;
-  --card:#ffffff;
-  --rim:#d1dce8;
-  --rim2:#b8c8dc;
-  --glow:#0284c7;
-  --glow2:#0369a1;
-  --amber:#d97706;
-  --amber2:#b45309;
-  --emerald:#16a34a;
-  --emerald2:#15803d;
-  --rose:#dc2626;
-  --violet:#6d28d9;
-  --text:#0f172a;
-  --text2:#334155;
-  --text3:#64748b;
-  --shadow:0 4px 16px rgba(0,0,0,.08);
-  --topbar-bg:rgba(248,250,252,.97);
-  --bbar-bg:rgba(255,255,255,.97);
-  --prev-bg:rgba(0,0,0,.04);
-  --bot-bg:rgba(0,0,0,.03);
-  --inp-focus-bg:#ffffff;
-  --scanline:transparent;
-}
-
-*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-html,body{min-height:100%;background:var(--void);color:var(--text);font-family:var(--sans);font-size:14px;overflow-x:hidden;transition:background .3s,color .3s}
-
-/* ═══ SCANLINE — dark only ═══ */
-body::before{
-  content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
-  background:repeating-linear-gradient(0deg,transparent,transparent 2px,var(--scanline) 2px,var(--scanline) 4px);
-  transition:opacity .3s;
-}
-
-/* ═══ THEME TOGGLE BUTTON ═══ */
-.theme-btn{
-  position:relative;width:52px;height:26px;border:none;border-radius:13px;cursor:pointer;
-  background:var(--rim2);transition:background .3s;flex-shrink:0;
-  border:1.5px solid var(--rim2);
-}
-.theme-btn::after{
-  content:'';position:absolute;top:2px;left:2px;
-  width:18px;height:18px;border-radius:50%;
-  background:var(--text3);
-  transition:transform .3s cubic-bezier(.34,1.56,.64,1),background .3s;
-  box-shadow:0 1px 4px rgba(0,0,0,.3);
-}
-[data-theme="light"] .theme-btn{background:#bfdbfe;border-color:#93c5fd}
-[data-theme="light"] .theme-btn::after{transform:translateX(26px);background:#0284c7}
-.theme-icon{font-size:14px;line-height:1;transition:all .3s}
-
-/* ═══ LIGHT MODE — component overrides ═══ */
-[data-theme="light"] .topbar{border-bottom:2px solid var(--glow)}
-[data-theme="light"] .card{box-shadow:0 1px 4px rgba(0,0,0,.07),0 2px 8px rgba(0,0,0,.05)}
-[data-theme="light"] .card:hover{box-shadow:var(--shadow)}
-[data-theme="light"] .card.done{border-color:rgba(22,163,74,.35);background:linear-gradient(180deg,#f0fdf4,#fff)}
-[data-theme="light"] .prev-row{border-bottom:1px solid var(--rim)}
-[data-theme="light"] .meter-inp{background:#fff;border-color:var(--rim2)}
-[data-theme="light"] .meter-inp:focus{background:#fff;border-color:var(--glow)}
-[data-theme="light"] .meter-inp.ok{border-color:var(--emerald);color:var(--emerald)}
-[data-theme="light"] .usage-chip{background:#f1f5f9;border-color:var(--rim)}
-[data-theme="light"] .usage-chip.up{background:#dcfce7;color:var(--emerald);border-color:#86efac}
-[data-theme="light"] .usage-chip.dn{background:#fee2e2;color:var(--rose);border-color:#fca5a5}
-[data-theme="light"] .no-photo{background:#f8fafc;border-color:var(--rim2)}
-[data-theme="light"] .cam-btn.alb{background:#f1f5f9;color:var(--text2);border:1.5px solid var(--rim2)}
-[data-theme="light"] .srch{background:#fff;color:var(--text)}
-[data-theme="light"] .srch::placeholder{color:var(--text3)}
-[data-theme="light"] .fsel{background:#fff;color:var(--text)}
-[data-theme="light"] .dt-inp{background:#fff;color:var(--text)}
-[data-theme="light"] .btn-out{background:#fff;border-color:var(--rim2);color:var(--text2)}
-[data-theme="light"] .edit-btn{background:#fff;color:var(--text3)}
-[data-theme="light"] .modal{background:#fff;border-color:var(--rim);box-shadow:0 -8px 40px rgba(0,0,0,.12)}
-[data-theme="light"] .mi{background:#f8fafc;border-color:var(--rim2);color:var(--text)}
-[data-theme="light"] .sheet-info{background:#f8fafc;border-color:var(--rim)}
-[data-theme="light"] .mtab{background:#f8fafc;border-color:var(--rim2);color:var(--text3)}
-[data-theme="light"] .mtab:hover{border-color:var(--glow);color:var(--glow)}
-[data-theme="light"] .mtab.active{background:var(--glow);color:#fff}
-[data-theme="light"] .mtab.has{background:#dcfce7;border-color:#86efac;color:var(--emerald)}
-[data-theme="light"] .toast{background:#1e293b;color:#e2e8f0}
-[data-theme="light"] .sc{background:#fff}
-[data-theme="light"] .stats{background:var(--rim)}
-[data-theme="light"] .fbar{background:#f8fafc}
-[data-theme="light"] .unit-badge{background:rgba(2,132,199,.1);color:var(--glow);border-color:rgba(2,132,199,.25)}
-[data-theme="light"] .tw-1{background:rgba(109,40,217,.08);color:#6d28d9;border-color:rgba(109,40,217,.2)}
-[data-theme="light"] .tw-2{background:rgba(2,132,199,.08);color:var(--glow);border-color:rgba(2,132,199,.2)}
-[data-theme="light"] .tw-3{background:rgba(217,119,6,.08);color:var(--amber);border-color:rgba(217,119,6,.2)}
-[data-theme="light"] .tw-r{background:rgba(220,38,38,.08);color:var(--rose);border-color:rgba(220,38,38,.2)}
-[data-theme="light"] .ct-tag{background:rgba(217,119,6,.08);color:var(--amber);border-color:rgba(217,119,6,.15)}
-[data-theme="light"] .pfill{box-shadow:none}
-[data-theme="light"] .dot-ok{background:var(--emerald);box-shadow:0 0 6px rgba(22,163,74,.4)}
-[data-theme="light"] .grp-label{color:var(--glow)}
-[data-theme="light"] .mstrip{background:var(--deep)}
-[data-theme="light"] .inp-icon{color:var(--glow)}
-[data-theme="light"] .roll-banner{background:linear-gradient(135deg,rgba(217,119,6,.08),rgba(217,119,6,.04));border-color:rgba(217,119,6,.35)}
-[data-theme="light"] .logo{background:linear-gradient(90deg,var(--glow),var(--violet));-webkit-background-clip:text;background-clip:text}
-[data-theme="light"] .sync-dot{box-shadow:none}
-[data-theme="light"] body::before{display:none}
-/* card border left done */
-[data-theme="light"] .card.done{border-left:3px solid var(--emerald)}
-
-/* ═══ TOPBAR ═══ */
-.topbar{
-  position:sticky;top:0;z-index:300;
-  background:var(--topbar-bg);backdrop-filter:blur(16px);
-  border-bottom:1px solid var(--rim);
-  padding:0 16px;display:flex;align-items:center;gap:12px;
-  transition:background .3s,border-color .3s;
-}
-.logo-area{padding:11px 0;flex:1}
-.logo{font-size:15px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
-  background:linear-gradient(90deg,var(--glow),var(--violet));
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.logo-sub{font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:2px;letter-spacing:.5px}
-.topbar-right{display:flex;gap:6px;padding:11px 0;align-items:center}
-.sync-dot{width:7px;height:7px;border-radius:50%;background:var(--emerald);box-shadow:0 0 8px var(--emerald);animation:pulse 2s infinite}
-.sync-dot.off{background:var(--text3);box-shadow:none;animation:none}
-.sync-dot.syncing{background:var(--amber);box-shadow:0 0 8px var(--amber);animation:pulse .5s infinite}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-
-/* ═══ MONTH STRIP ═══ */
-.mstrip{
-  background:var(--deep);border-bottom:1px solid var(--rim);
-  padding:8px 14px;display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;
-}
-.mstrip::-webkit-scrollbar{display:none}
-.mtab{
-  flex-shrink:0;padding:5px 13px;border-radius:20px;
-  border:1px solid var(--rim2);background:transparent;
-  color:var(--text3);font-family:var(--mono);font-size:11px;font-weight:500;
-  cursor:pointer;transition:all .15s;white-space:nowrap;
-}
-.mtab:hover{border-color:var(--glow);color:var(--glow)}
-.mtab.active{background:var(--glow);color:#000;border-color:var(--glow);font-weight:700;box-shadow:0 0 12px rgba(0,212,255,.3)}
-.mtab.has{border-color:var(--emerald2);color:var(--emerald)}
-.mtab.has.active{background:var(--glow);color:#000;border-color:var(--glow)}
-
-/* ═══ PROGRESS ═══ */
-.pbar{height:2px;background:var(--rim)}
-.pfill{height:100%;background:linear-gradient(90deg,var(--glow),var(--emerald));transition:width .6s ease;box-shadow:0 0 8px rgba(0,212,255,.4)}
-
-/* ═══ STATS ═══ */
-.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--rim);border-bottom:1px solid var(--rim)}
-.sc{background:var(--panel);padding:10px 8px;text-align:center}
-.snum{font-family:var(--mono);font-size:20px;font-weight:700;color:var(--glow);line-height:1.1}
-.slbl{font-size:10px;color:var(--text3);margin-top:2px;letter-spacing:.3px;text-transform:uppercase}
-
-/* ═══ ROLLOVER BANNER ═══ */
-.roll-banner{
-  margin:10px 12px;border-radius:var(--r);
-  background:linear-gradient(135deg,rgba(245,158,11,.12),rgba(245,158,11,.06));
-  border:1px solid rgba(245,158,11,.4);
-  padding:12px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;
-}
-.roll-banner.off{display:none}
-
-/* ═══ FILTER BAR ═══ */
-.fbar{
-  padding:10px 12px;background:var(--panel);
-  border-bottom:1px solid var(--rim);
-  display:flex;gap:8px;flex-wrap:wrap;align-items:center;
-}
-.srch{
-  flex:1;min-width:140px;
-  background:var(--deep);border:1px solid var(--rim2);border-radius:8px;
-  padding:8px 12px;color:var(--text);font-family:var(--sans);font-size:13px;outline:none;
-  transition:border-color .15s;
-}
-.srch:focus{border-color:var(--glow);box-shadow:0 0 0 2px rgba(0,212,255,.12)}
-.srch::placeholder{color:var(--text3)}
-.fsel{
-  background:var(--deep);border:1px solid var(--rim2);border-radius:8px;
-  padding:8px 10px;color:var(--text);font-family:var(--sans);font-size:12px;
-  outline:none;cursor:pointer;
-}
-.fsel:focus{border-color:var(--glow)}
-.prog-lbl{font-family:var(--mono);font-size:11px;color:var(--text3);margin-left:auto;white-space:nowrap}
-.prog-lbl b{color:var(--emerald);font-weight:600}
-
-/* ═══ CARDS GRID ═══ */
-.cards{padding:8px 10px 90px;display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:8px}
-@media(max-width:340px){.cards{grid-template-columns:1fr;padding:6px 6px 90px}}
-
-/* ═══ FLOOR GROUP HEADER ═══ */
-.grp-hdr{
-  grid-column:1/-1;display:flex;align-items:center;gap:10px;
-  padding:8px 2px 2px;
-}
-.grp-label{
-  font-family:var(--mono);font-size:10px;font-weight:600;
-  letter-spacing:1px;text-transform:uppercase;color:var(--glow);
-  white-space:nowrap;
-}
-.grp-line{flex:1;height:1px;background:linear-gradient(90deg,var(--rim2),transparent)}
-
-/* ═══ CARD ═══ */
-.card{
-  background:var(--card);border:1px solid var(--rim);border-radius:var(--r);
-  overflow:hidden;transition:border-color .15s,box-shadow .15s;
-  position:relative;
-}
-.card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;
-  background:linear-gradient(90deg,transparent,var(--rim2),transparent);pointer-events:none}
-.card:hover{border-color:var(--rim2);box-shadow:0 4px 20px rgba(0,0,0,.4)}
-.card.done{border-color:rgba(0,232,122,.25);border-left:3px solid var(--emerald)}
-.card.done::before{background:linear-gradient(90deg,transparent,rgba(0,232,122,.2),transparent)}
-
-/* CARD HEAD */
-.card-head{padding:10px 12px 8px;border-bottom:1px solid var(--rim);display:flex;align-items:flex-start;gap:8px}
-.card-left{flex:1;min-width:0}
-.unit-row{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:4px}
-.unit-badge{
-  font-family:var(--mono);font-size:11px;font-weight:700;
-  background:rgba(0,212,255,.12);color:var(--glow);
-  border:1px solid rgba(0,212,255,.2);padding:2px 8px;border-radius:4px;
-}
-.tower-tag{font-family:var(--mono);font-size:10px;padding:2px 6px;border-radius:4px;font-weight:600;white-space:nowrap}
-.tw-1{background:rgba(124,92,252,.15);color:#a78bfa;border:1px solid rgba(124,92,252,.25)}
-.tw-2{background:rgba(0,212,255,.1);color:var(--glow);border:1px solid rgba(0,212,255,.2)}
-.tw-3{background:rgba(245,158,11,.1);color:var(--amber);border:1px solid rgba(245,158,11,.2)}
-.tw-r{background:rgba(255,61,90,.1);color:var(--rose);border:1px solid rgba(255,61,90,.2)}
-.tw-x{background:rgba(148,168,196,.1);color:var(--text2);border:1px solid rgba(148,168,196,.15)}
-.ct-tag{font-family:var(--mono);font-size:10px;padding:2px 5px;border-radius:4px;background:rgba(245,158,11,.1);color:var(--amber);border:1px solid rgba(245,158,11,.15)}
-.tenant{font-size:12px;font-weight:500;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:210px}
-.meter-no{font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:2px}
-.card-right{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0}
-.status-dot{width:9px;height:9px;border-radius:50%}
-.dot-ok{background:var(--emerald);box-shadow:0 0 8px var(--emerald)}
-.dot-no{background:var(--rim2)}
-.edit-btn{background:none;border:1px solid var(--rim2);border-radius:5px;color:var(--text3);cursor:pointer;font-size:11px;padding:3px 7px;font-family:var(--sans);transition:all .12s}
-.edit-btn:hover{border-color:var(--glow);color:var(--glow)}
-
-/* PREV ROW */
-.prev-row{padding:5px 12px;display:flex;align-items:center;background:var(--prev-bg);border-bottom:1px solid var(--rim);transition:background .3s}
-.prev-lbl{font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.3px}
-.prev-val{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--text2);margin-left:auto}
-
-/* INPUT AREA */
-.inp-area{padding:10px 12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.inp-wrap{flex:1;min-width:130px;position:relative}
-.inp-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none;color:var(--glow)}
-.meter-inp{
-  width:100%;background:var(--deep);
-  border:1.5px solid var(--rim2);border-radius:8px;
-  padding:10px 10px 10px 32px;
-  color:var(--text);font-family:var(--mono);font-size:15px;font-weight:600;
-  outline:none;transition:border-color .15s,box-shadow .15s;
-  -moz-appearance:textfield;
-}
-.meter-inp::-webkit-outer-spin-button,.meter-inp::-webkit-inner-spin-button{-webkit-appearance:none}
-.meter-inp::placeholder{color:var(--text3);font-weight:400;font-size:13px}
-.meter-inp:focus{border-color:var(--glow);box-shadow:0 0 0 3px rgba(0,212,255,.1);background:var(--inp-focus-bg)}
-.meter-inp.ok{border-color:var(--emerald);color:var(--emerald)}
-.meter-inp.ok:focus{box-shadow:0 0 0 3px rgba(0,232,122,.1)}
-.meter-inp.err{border-color:var(--rose);animation:shk .25s}
-@keyframes shk{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
-.usage-chip{
-  padding:6px 10px;border-radius:6px;font-family:var(--mono);font-size:12px;font-weight:700;
-  white-space:nowrap;background:var(--deep);color:var(--text3);border:1px solid var(--rim);
-}
-.usage-chip.up{background:rgba(0,232,122,.1);color:var(--emerald);border-color:rgba(0,232,122,.2)}
-.usage-chip.dn{background:rgba(255,61,90,.1);color:var(--rose);border-color:rgba(255,61,90,.2)}
-
-/* ═══ IMAGE SECTION ═══ */
-.img-section{padding:0 12px 10px}
-.img-preview-big{
-  width:100%;border-radius:8px;overflow:hidden;margin-bottom:6px;
-  background:var(--deep);border:1px solid var(--rim);cursor:pointer;
-  position:relative;transition:opacity .15s;
-}
-.img-preview-big:hover{opacity:.9}
-.img-preview-big img{width:100%;max-height:190px;object-fit:contain;display:block;border-radius:7px}
-.img-delete-btn{
-  position:absolute;top:6px;right:6px;
-  background:rgba(255,61,90,.85);color:#fff;border:none;border-radius:5px;
-  padding:4px 8px;font-size:11px;cursor:pointer;font-family:var(--sans);font-weight:600;
-  backdrop-filter:blur(4px);transition:background .12s;z-index:5;
-}
-.img-delete-btn:hover{background:var(--rose)}
-.no-photo{
-  display:flex;flex-direction:column;align-items:center;gap:4px;padding:14px;
-  color:var(--text3);background:var(--deep);border:1px dashed var(--rim2);
-  border-radius:8px;margin-bottom:6px;text-align:center;
-}
-.no-photo .ni{font-size:24px;opacity:.5}
-.no-photo .nt{font-size:11px;letter-spacing:.3px}
-.cam-btns{display:grid;grid-template-columns:1fr 1fr;gap:6px}
-.cam-btn{
-  display:flex;align-items:center;justify-content:center;gap:5px;
-  border-radius:7px;padding:8px 10px;cursor:pointer;font-size:12px;font-weight:600;
-  font-family:var(--sans);border:none;transition:all .15s;position:relative;overflow:hidden;
-}
-.cam-btn input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
-.cam-btn.cam{background:var(--glow);color:#000}
-.cam-btn.cam:hover{background:var(--glow2);box-shadow:0 0 12px rgba(0,212,255,.3)}
-.cam-btn.alb{background:var(--deep);color:var(--text2);border:1px solid var(--rim2)}
-.cam-btn.alb:hover{border-color:var(--glow);color:var(--glow)}
-.img-action-row{display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap}
-.view-full{background:none;border:1px solid rgba(0,232,122,.3);border-radius:6px;color:var(--emerald);font-size:11px;font-weight:600;padding:4px 10px;cursor:pointer;font-family:var(--sans);transition:all .12s}
-.view-full:hover{background:rgba(0,232,122,.1)}
-
-/* BOTTOM ROW */
-.bot-row{
-  padding:8px 12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;
-  border-top:1px solid var(--rim);background:var(--bot-bg);transition:background .3s;
-}
-.dt-inp{
-  background:var(--deep);border:1px solid var(--rim2);border-radius:6px;
-  padding:6px 8px;color:var(--text);font-family:var(--mono);font-size:11px;
-  outline:none;flex:1;min-width:145px;transition:border-color .15s;
-}
-.dt-inp:focus{border-color:var(--glow)}
-.loc-txt{font-size:10px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;max-width:140px}
-
-/* ═══ BUTTONS ═══ */
-.btn{padding:7px 13px;border-radius:7px;border:none;cursor:pointer;font-family:var(--sans);font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:5px;transition:all .15s;white-space:nowrap}
-.btn-glow{background:var(--glow);color:#000;box-shadow:0 0 12px rgba(0,212,255,.25)}
-.btn-glow:hover{background:var(--glow2)}
-.btn-grn{background:var(--emerald);color:#000}
-.btn-grn:hover{background:var(--emerald2)}
-.btn-out{background:transparent;border:1px solid var(--rim2);color:var(--text2)}
-.btn-out:hover{border-color:var(--glow);color:var(--glow)}
-.btn-sm{padding:5px 10px;font-size:11px}
-.btn-danger{background:transparent;border:1px solid rgba(255,61,90,.4);color:var(--rose)}
-.btn-danger:hover{background:rgba(255,61,90,.1)}
-.btn-amber{background:var(--amber);color:#000}
-
-/* ═══ BOTTOM BAR ═══ */
-.bbar{
-  position:fixed;bottom:0;left:0;right:0;z-index:200;
-  background:var(--bbar-bg);backdrop-filter:blur(16px);
-  border-top:1px solid var(--rim);
-  padding:8px 12px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;
-  transition:background .3s,border-color .3s;
-}
-.bbar-lbl{font-size:10px;color:var(--text3);font-family:var(--mono);letter-spacing:.3px}
-
-/* ═══ MODAL ═══ */
-.ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;align-items:flex-end;justify-content:center;backdrop-filter:blur(4px)}
-.ov.open{display:flex}
-@media(min-width:580px){.ov{align-items:center;padding:20px}}
-.modal{
-  background:var(--panel);border:1px solid var(--rim2);
-  border-radius:14px 14px 0 0;padding:20px;width:100%;
-  max-height:90vh;overflow-y:auto;animation:slideUp .18s ease;
-  box-shadow:0 -8px 40px rgba(0,0,0,.5);
-}
-@media(min-width:580px){.modal{border-radius:12px;max-width:480px}}
-@keyframes slideUp{from{transform:translateY(16px);opacity:0}to{transform:translateY(0);opacity:1}}
-.mhandle{width:36px;height:3px;background:var(--rim2);border-radius:2px;margin:0 auto 16px}
-.mtitle{font-size:16px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px;color:var(--text)}
-.ml{font-size:10px;color:var(--text3);font-weight:600;margin-bottom:4px;display:block;letter-spacing:.5px;text-transform:uppercase;font-family:var(--mono)}
-.mi{width:100%;background:var(--deep);border:1px solid var(--rim2);border-radius:7px;padding:9px 12px;color:var(--text);font-family:var(--sans);font-size:13px;outline:none;transition:border-color .15s}
-.mi:focus{border-color:var(--glow)}
-.mi-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
-.mi-row{margin-bottom:8px}
-.mi-foot{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
-
-/* ═══ GOOGLE SHEET SETTINGS MODAL ═══ */
-.sheet-info{background:var(--deep);border:1px solid var(--rim);border-radius:7px;padding:10px;margin-top:8px;font-size:11px;color:var(--text3);line-height:1.6;font-family:var(--mono)}
-.sheet-info a{color:var(--glow);text-decoration:none}
-
-/* ═══ IMAGE VIEWER ═══ */
-.img-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.93);z-index:600;align-items:center;justify-content:center}
-.img-ov.open{display:flex}
-
-/* ═══ TOAST ═══ */
-.toast{
-  position:fixed;bottom:68px;left:50%;transform:translateX(-50%);z-index:9999;
-  background:var(--panel);border:1px solid var(--rim2);border-radius:8px;
-  padding:9px 16px;font-size:12px;white-space:nowrap;color:var(--text);
-  display:none;box-shadow:0 4px 20px rgba(0,0,0,.5);font-family:var(--mono);
-}
-.toast.show{display:block;animation:fdu .2s ease}
-@keyframes fdu{from{opacity:0;transform:translateX(-50%) translateY(8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
-
-/* ═══ SETTINGS GEAR ═══ */
-.gear-btn{background:none;border:1px solid var(--rim);border-radius:6px;color:var(--text3);cursor:pointer;padding:5px 8px;font-size:14px;transition:all .12s}
-.gear-btn:hover{border-color:var(--glow);color:var(--glow)}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>⚡ Tower Meter</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Kanit', sans-serif; }
+        .glass { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
+        .neon-blue { box-shadow: 0 0 10px #00d4ff, 0 0 20px #00d4ff; }
+        .dark-gradient { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); }
+        .light-theme { background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%); color: #1e293b; }
+        .light-theme .glass { background: rgba(255,255,255,0.8); border-color: rgba(0,0,0,0.1); }
+        input, select { transition: all 0.2s; }
+        input:focus, select:focus { outline: none; border-color: #06b6d4; box-shadow: 0 0 0 3px rgba(6,182,212,0.2); }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+    </style>
 </head>
-<body>
+<body class="dark-gradient text-white min-h-screen">
+    <!-- Header -->
+    <header class="p-4 border-b border-gray-700 glass sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto flex justify-between items-center flex-wrap gap-2">
+            <div>
+                <h1 class="text-2xl font-bold text-cyan-400">⚡ TOWER METER</h1>
+                <p class="text-xs text-gray-400" id="currentDate">Apr 2026 • 0 METERS</p>
+            </div>
+            <div class="flex gap-2 items-center flex-wrap">
+                <span id="connectionStatus" class="text-xs px-2 py-1 rounded bg-yellow-600">CONNECTING...</span>
+                <button onclick="toggleTheme()" class="p-2 rounded-lg bg-gray-700 hover:bg-gray-600 transition">🌙</button>
+                <button onclick="toggleSettings()" class="p-2 rounded-lg bg-gray-700 hover:bg-gray-600 transition">⚙️</button>
+                <button onclick="openAddModal()" class="px-4 py-2 bg-cyan-500 hover:bg-cyan-600 rounded-lg font-semibold transition">＋ ADD</button>
+            </div>
+        </div>
+    </header>
 
-<!-- TOP BAR -->
-<div class="topbar">
-  <div class="logo-area">
-    <div class="logo">⚡ TOWER METER</div>
-    <div class="logo-sub" id="logoSub">LOADING...</div>
-  </div>
-  <div class="topbar-right">
-    <div class="sync-dot off" id="syncDot" title="สถานะ sync"></div>
-    <span style="font-size:10px;color:var(--text3);font-family:var(--mono)" id="syncLbl">OFFLINE</span>
-    <!-- THEME TOGGLE -->
-    <span class="theme-icon" id="themeIcon">🌙</span>
-    <button class="theme-btn" id="themeBtn" onclick="toggleTheme()" title="สลับโหมดสว่าง/มืด" aria-label="Toggle theme"></button>
-    <button class="gear-btn" onclick="openSettings()" title="ตั้งค่า Google Sheet">⚙️</button>
-    <button class="btn btn-glow btn-sm" onclick="openAdd()">＋ ADD</button>
-  </div>
-</div>
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto p-4 pb-24">
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-3 gap-4 mb-6">
+            <div class="glass p-4 rounded-xl border border-cyan-500/30 text-center">
+                <div class="text-3xl font-bold text-cyan-400" id="totalCount">0</div>
+                <div class="text-sm text-gray-400">TOTAL</div>
+            </div>
+            <div class="glass p-4 rounded-xl border border-green-500/30 text-center">
+                <div class="text-3xl font-bold text-green-400" id="doneCount">0</div>
+                <div class="text-sm text-gray-400">DONE</div>
+            </div>
+            <div class="glass p-4 rounded-xl border border-red-500/30 text-center">
+                <div class="text-3xl font-bold text-red-400" id="pendingCount">0</div>
+                <div class="text-sm text-gray-400">PENDING</div>
+            </div>
+        </div>
 
-<!-- MONTH STRIP -->
-<div class="mstrip" id="mstrip"></div>
-<div class="pbar"><div class="pfill" id="pfill" style="width:0%"></div></div>
+        <!-- Filters -->
+        <div class="glass p-4 rounded-xl mb-6 space-y-4">
+            <div class="flex gap-2 flex-wrap">
+                <input type="text" id="searchInput" placeholder="🔍 Unit / ชื่อผู้เช่า / มิเตอร์ / ชั้น..." 
+                       class="flex-1 min-w-[200px] px-4 py-2 rounded-lg bg-gray-800 border border-gray-600 focus:border-cyan-500">
+                <select id="towerFilter" class="px-4 py-2 rounded-lg bg-gray-800 border border-gray-600">
+                    <option value="">ทุก Tower</option>
+                    <option value="Tower 1">Tower 1</option>
+                    <option value="Tower 2">Tower 2</option>
+                    <option value="Tower 3">Tower 3</option>
+                    <option value="R3">R3</option>
+                </select>
+                <select id="statusFilter" class="px-4 py-2 rounded-lg bg-gray-800 border border-gray-600">
+                    <option value="">ทุกสถานะ</option>
+                    <option value="done">✅ Done</option>
+                    <option value="pending">⏳ Pending</option>
+                </select>
+                <div class="px-4 py-2 text-green-400 font-medium">DONE <span id="doneProgress">0</span>/<span id="totalProgress">0</span></div>
+            </div>
+        </div>
 
-<!-- STATS -->
-<div class="stats">
-  <div class="sc"><div class="snum" id="sA">0</div><div class="slbl">TOTAL</div></div>
-  <div class="sc"><div class="snum" id="sD" style="color:var(--emerald)">0</div><div class="slbl">DONE</div></div>
-  <div class="sc"><div class="snum" id="sP" style="color:var(--rose)">0</div><div class="slbl">PENDING</div></div>
-</div>
+        <!-- Meters Grid -->
+        <div id="metersGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div class="col-span-full text-center py-12 text-gray-500">
+                <div class="text-4xl mb-2 animate-pulse">🔄</div>
+                <div>กำลังโหลดข้อมูลจาก Firestore...</div>
+            </div>
+        </div>
+    </main>
 
-<!-- ROLLOVER -->
-<div class="roll-banner off" id="rollB">
-  <span style="font-size:20px">🔄</span>
-  <div style="flex:1">
-    <div style="font-weight:700;color:var(--amber);font-size:13px">บันทึกครบแล้ว!</div>
-    <div style="font-size:11px;color:var(--text2);margin-top:2px;font-family:var(--mono)" id="rollD"></div>
-  </div>
-  <button class="btn btn-amber btn-sm" onclick="doRollover()">ROLLOVER →</button>
-</div>
-
-<!-- FILTER -->
-<div class="fbar">
-  <input class="srch" id="srch" placeholder="🔍  Unit / ชื่อผู้เช่า / มิเตอร์ / ชั้น..." oninput="render()">
-  <select class="fsel" id="fTw" onchange="render()">
-    <option value="">ทุก Tower</option>
-    <option value="1">Tower 1</option>
-    <option value="2">Tower 2</option>
-    <option value="3">Tower 3</option>
-    <option value="R3">R3</option>
-  </select>
-  <select class="fsel" id="fSt" onchange="render()">
-    <option value="">ทุกสถานะ</option>
-    <option value="done">✅ Done</option>
-    <option value="pend">⏳ Pending</option>
-  </select>
-  <div class="prog-lbl">DONE <b id="progLbl">0/0</b></div>
-</div>
-
-<!-- CARDS -->
-<div class="cards" id="cards"></div>
-<div style="text-align:center;padding:50px;color:var(--text3);display:none;font-family:var(--mono)" id="emp">// NO RESULTS //</div>
-
-<!-- BOTTOM BAR -->
-<div class="bbar">
-  <span class="bbar-lbl">AUTO-SAVE</span>
-  <button class="btn btn-out btn-sm" onclick="expCSV()">📥 CSV</button>
-  <button class="btn btn-out btn-sm" onclick="pushToSheet()">☁️ SYNC NOW</button>
-  <button class="btn btn-out btn-sm" onclick="copyS()">📋 SHEETS</button>
-  <button class="btn btn-danger btn-sm" onclick="clrMonth()">🗑 CLEAR</button>
-</div>
-
-<!-- ════ EDIT MODAL ════ -->
-<div class="ov" id="editOv">
-  <div class="modal">
-    <div class="mhandle"></div>
-    <div class="mtitle"><span id="eIc">➕</span> <span id="eTi">ADD METER</span></div>
-    <div class="mi-grid">
-      <div class="mi-row"><label class="ml">Unit *</label><input class="mi" id="eU" placeholder="4001"></div>
-      <div class="mi-row"><label class="ml">Tower</label>
-        <select class="mi" id="eTw">
-          <option value="1">Tower 1</option><option value="2">Tower 2</option>
-          <option value="3">Tower 3</option><option value="R3">R3</option>
-          <option value="A">A</option><option value="B">B</option>
-          <option value="C">C</option><option value="D">D</option>
-        </select>
-      </div>
-    </div>
-    <div class="mi-row"><label class="ml">ชื่อผู้เช่า *</label><input class="mi" id="eT"></div>
-    <div class="mi-grid">
-      <div class="mi-row"><label class="ml">เลขมิเตอร์ *</label><input class="mi" id="eM"></div>
-      <div class="mi-row"><label class="ml">CT</label><input class="mi" id="eC" type="number" value="1" min="1"></div>
-    </div>
-    <div class="mi-row"><label class="ml">ค่า Mar 2026 (ฐาน)</label><input class="mi" id="eB" type="number" step="0.0001"></div>
-    <div class="mi-row"><label class="ml">สถานที่</label><input class="mi" id="eL"></div>
-    <div class="mi-foot">
-      <button class="btn btn-out" onclick="closeEdit()">CANCEL</button>
-      <button class="btn btn-glow" onclick="saveEdit()">SAVE</button>
-    </div>
-  </div>
-</div>
-
-<!-- ════ SETTINGS MODAL ════ -->
-<div class="ov" id="settingsOv">
-  <div class="modal">
-    <div class="mhandle"></div>
-    <div class="mtitle">⚙️ Settings — Firebase</div>
-
-    <div style="background:rgba(0,232,122,.08);border:1px solid rgba(0,232,122,.25);border-radius:8px;padding:14px;margin-bottom:14px">
-      <div style="font-weight:700;color:var(--emerald);margin-bottom:6px;font-size:13px">🔥 Firebase Realtime Database</div>
-      <div style="font-family:var(--mono);font-size:11px;color:var(--text2);line-height:1.8">
-        Project: <span style="color:var(--glow)">electricity-meter-record-3fca8</span><br>
-        Database: <span style="color:var(--glow)">asia-southeast1</span><br>
-        Status: <span id="fbStatusInModal" style="color:var(--emerald)">กำลังเชื่อมต่อ...</span>
-      </div>
+    <!-- Floating Action Bar -->
+    <div class="fixed bottom-0 left-0 right-0 glass border-t border-gray-700 p-4 z-40">
+        <div class="max-w-7xl mx-auto flex justify-between items-center flex-wrap gap-2">
+            <div class="flex gap-2 flex-wrap">
+                <button onclick="toggleAutoSave()" id="autoSaveBtn" class="px-3 py-2 rounded bg-gray-700 hover:bg-gray-600 text-xs transition">AUTO-SAVE</button>
+                <button onclick="exportCSV()" class="px-4 py-2 rounded bg-blue-600 hover:bg-blue-700 transition">📥 CSV</button>
+                <button onclick="refreshData()" class="px-4 py-2 rounded bg-purple-600 hover:bg-purple-700 transition">☁️ SYNC</button>
+                <button onclick="exportToSheets()" class="px-4 py-2 rounded bg-green-600 hover:bg-green-700 transition">📋 SHEETS</button>
+                <button onclick="clearAllData()" class="px-4 py-2 rounded bg-red-600 hover:bg-red-700 transition">🗑 CLEAR</button>
+            </div>
+            <div id="saveStatus" class="text-sm text-green-400 hidden animate-pulse">✓ บันทึกครบแล้ว!</div>
+        </div>
     </div>
 
-    <div class="mi-row">
-      <label class="ml">ดูข้อมูลใน Firebase Console</label>
-      <a href="https://console.firebase.google.com/project/electricity-meter-record-3fca8/database" target="_blank"
-        style="display:inline-flex;align-items:center;gap:6px;background:var(--glow);color:#000;padding:7px 14px;border-radius:7px;text-decoration:none;font-size:12px;font-weight:700;font-family:var(--sans);margin-top:4px">
-        🔗 เปิด Firebase Console
-      </a>
+    <!-- Add/Edit Modal -->
+    <div id="addModal" class="fixed inset-0 bg-black/80 hidden z-50 flex items-center justify-center p-4">
+        <div class="glass rounded-2xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <h2 class="text-xl font-bold mb-4" id="modalTitle">➕ ADD METER</h2>
+            <form id="addForm" class="space-y-4">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-sm mb-1">Unit <span class="text-red-500">*</span></label>
+                        <input type="text" id="inputUnit" required class="w-full px-4 py-2 rounded-lg bg-gray-800 border border-gray-600">
+                    </div>
+                    <div>
+                        <label class="block text-sm mb-1">Tower</label>
+                        <select id="inputTower" class="w-full px-4 py-2 rounded-lg bg-gray-800 border border-gray-600">
+                            <option value="Tower 1">Tower 1</option>
+                            <option value="Tower 2">Tower 2</option>
+                            <option value="Tower 3">Tower 3</option>
+                            <option value="R3">R3</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-4 gap-2">
+                    <div><label class="block text-sm mb-1">A</label><input type="text" id="inputA" class="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-600"></div>
+                    <div><label class="block text-sm mb-1">B</label><input type="text" id="inputB" class="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-600"></div>
+                    <div><label class="block text-sm mb-1">C</label><input type="text" id="inputC" class="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-600"></div>
+                    <div><label class="block text-sm mb-1">D</label><input type="text" id="inputD" class="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-600"></div>
+                </div>
+                <div>
+                    <label class="block text-sm mb-1">ชื่อผู้เช่า <span class="text-red-500">*</span></label>
+                    <input type="text" id="inputTenant" required class="w-full px-4 py-2 rounded-lg bg-gray-800 border border-gray-600">
+                </div>
+                <div>
+                    <label class="block text-sm mb-1">เลขมิเตอร์ <span class="text-red-500">*</span></label>
+                    <input type="text" id="inputMeterNumber" required class="w-full px-4 py-2 rounded-lg bg-gray-800 border border-gray-600">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-sm mb-1">CT</label>
+                        <input type="text" id="inputCT" class="w-full px-4 py-2 rounded-lg bg-gray-800 border border-gray-600">
+                    </div>
+                    <div>
+                        <label class="block text-sm mb-1">ค่า Mar 2026 (ฐาน)</label>
+                        <input type="number" id="inputBaseValue" step="0.001" class="w-full px-4 py-2 rounded-lg bg-gray-800 border border-gray-600">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm mb-1">สถานที่</label>
+                    <input type="text" id="inputLocation" class="w-full px-4 py-2 rounded-lg bg-gray-800 border border-gray-600">
+                </div>
+                <div class="flex gap-2 pt-4">
+                    <button type="button" onclick="closeAddModal()" class="flex-1 px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 transition">CANCEL</button>
+                    <button type="submit" class="flex-1 px-4 py-2 rounded-lg bg-cyan-500 hover:bg-cyan-600 font-semibold transition">💾 SAVE</button>
+                </div>
+            </form>
+        </div>
     </div>
 
-    <div style="border-top:1px solid var(--rim);padding-top:12px;margin-top:8px">
-      <label class="ml">Security Rules — ตั้งใน Firebase Console</label>
-      <div class="sheet-info" style="font-size:11px">
-        Realtime Database → Rules → วาง:<br>
-        <code style="color:var(--emerald)">{
-  "rules": {
-    ".read": true,
-    ".write": true
-  }
-}</code><br>
-        <span style="color:var(--amber)">⚠️ Test mode 30 วัน — ต้องตั้ง Rules ก่อนหมดเวลา</span>
-      </div>
-    </div>
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="fixed inset-0 bg-black/80 hidden z-50 flex items-center justify-center p-4">
+        <div class="glass rounded-2xl p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <h2 class="text-xl font-bold mb-4">⚙️ Settings — Firebase Firestore</h2>
+            <div class="space-y-4">
+                <div class="p-4 rounded-lg bg-gray-800 border border-cyan-500/30">
+                    <h3 class="font-semibold text-cyan-400 mb-2">🔥 Firebase Firestore Database</h3>
+                    <div class="space-y-2 text-sm">
+                        <div><span class="text-gray-400">Project:</span> <span class="text-white font-mono break-all">electricity-meter-record-3fca8</span></div>
+                        <div><span class="text-gray-400">Database:</span> <span class="text-white font-mono">(default)</span></div>
+                        <div><span class="text-gray-400">Collection:</span> <span class="text-white font-mono">meters</span></div>
+                        <div><span class="text-gray-400">Status:</span> <span id="dbStatus" class="text-yellow-400">กำลังเชื่อมต่อ...</span></div>
+                    </div>
+                    <a href="https://console.firebase.google.com/project/electricity-meter-record-3fca8/firestore" 
+                       target="_blank" 
+                       class="mt-3 inline-block px-4 py-2 bg-cyan-600 hover:bg-cyan-700 rounded-lg text-sm transition">
+                        🔗 เปิด Firebase Console
+                    </a>
+                </div>
 
-    <div class="mi-foot">
-      <button class="btn btn-out" onclick="closeSettings()">CLOSE</button>
-    </div>
-  </div>
-</div>
-
-<!-- ════ APPS SCRIPT VIEWER ════ -->
-<div class="ov" id="scriptOv">
-  <div class="modal" style="max-width:600px">
-    <div class="mhandle"></div>
-    <div class="mtitle">📄 Google Apps Script</div>
-    <div style="background:var(--void);border:1px solid var(--rim);border-radius:8px;padding:12px;overflow-x:auto;margin-bottom:12px">
-      <pre style="font-family:var(--mono);font-size:10px;color:var(--text2);line-height:1.6;white-space:pre-wrap" id="scriptText"></pre>
-    </div>
-    <div class="mi-foot">
-      <button class="btn btn-out" onclick="document.getElementById('scriptOv').classList.remove('open')">CLOSE</button>
-      <button class="btn btn-glow" onclick="copyScript()">📋 COPY</button>
-    </div>
-  </div>
-</div>
-
-<!-- IMAGE VIEWER -->
-<div class="img-ov" id="imgOv" onclick="this.classList.remove('open')">
-  <div style="position:relative;max-width:96vw;max-height:94vh" onclick="event.stopPropagation()">
-    <img id="imgEl" style="max-width:96vw;max-height:90vh;border-radius:10px;display:block;object-fit:contain">
-    <button onclick="document.getElementById('imgOv').classList.remove('open')"
-      style="position:absolute;top:-14px;right:-14px;background:var(--rose);color:#fff;border:none;border-radius:50%;width:28px;height:28px;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center">✕</button>
-  </div>
-</div>
-
-<div class="toast" id="toast"></div>
-
-<script>
-// ══════════════════════════════════════════════
-// 116 METERS — DATASET 2 (Tower 1,2,3 / Floor 38-46 + R3)
-// ══════════════════════════════════════════════
-const RAW=[
-// ── Floor 38 ──────────────────────────────
-{u:"3801",t:"Empty",tw:"1",fl:"38",m:"8418690",ct:1,b:96718.0,loc:"ห้องชาร์ปไฟฟ้าทาวเวอร์ 1"},
-{u:"3802",t:"Empty",tw:"1",fl:"38",m:"8379972",ct:1,b:52261.0,loc:"ห้องชาร์ปไฟฟ้าทาวเวอร์ 1"},
-{u:"3803-5",t:"Empty",tw:"2",fl:"38",m:"8377743",ct:30,b:326.8,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์2"},
-{u:"3806",t:"Empty",tw:"3",fl:"38",m:"8360684",ct:1,b:43427.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์3"},
-{u:"3807",t:"Empty",tw:"3",fl:"38",m:"8359872",ct:1,b:66016.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์3"},
-{u:"3808",t:"Empty",tw:"3",fl:"38",m:"8360679",ct:1,b:98648.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์3"},
-{u:"3809",t:"Empty",tw:"3",fl:"38",m:"8398095",ct:1,b:59373.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์3"},
-{u:"3810-12",t:"Empty",tw:"2",fl:"38",m:"8374730",ct:30,b:7830.5,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์2"},
-{u:"3813",t:"Empty",tw:"1",fl:"38",m:"8374275",ct:1,b:50721.0,loc:"ห้องชาร์ปไฟฟ้าทาวเวอร์ 1"},
-{u:"3814",t:"Empty",tw:"1",fl:"38",m:"8418684",ct:1,b:49633.0,loc:"ห้องชาร์จไฟฟ้าทาวเวอร์ 1"},
-// ── Floor 39 ──────────────────────────────
-{u:"3901",t:"Empty",tw:"1",fl:"39",m:"8374331",ct:1,b:11400.0,loc:"ห้องชาร์จไฟทาวเวอร์ 1"},
-{u:"3902",t:"Empty",tw:"1",fl:"39",m:"8374340",ct:1,b:15646.0,loc:"ห้องชาร์ปไฟทาวเวอร์ 1"},
-{u:"3903 (3901)",t:"Empty",tw:"2",fl:"39",m:"9840922",ct:1,b:81571.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 2"},
-{u:"3903-4",t:"Empty (Sharing)",tw:"2",fl:"39",m:"8371800",ct:30,b:6438.2,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 2"},
-{u:"3905",t:"Empty",tw:"3",fl:"39",m:"8398085",ct:1,b:39775.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์3"},
-{u:"3906",t:"Empty",tw:"3",fl:"39",m:"8353793",ct:1,b:78432.0,loc:"อยู่ในห้องชาร์ปทาวเวอร์3"},
-{u:"3907",t:"Empty",tw:"3",fl:"39",m:"8360641",ct:1,b:82449.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์3"},
-{u:"3908",t:"Empty",tw:"3",fl:"39",m:"8398027",ct:1,b:17447.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์3"},
-{u:"3909-10-1",t:"Sharing",tw:"2",fl:"39",m:"9833650",ct:30,b:6418.9,loc:"อยู่ในห้องชาร์ปไฟ ทาวเวอร์2"},
-{u:"3911",t:"Empty",tw:"1",fl:"39",m:"8374319",ct:1,b:90504.0,loc:"ห้องชาร์ปไฟทาวเวอร์ 1"},
-{u:"3912",t:"Empty",tw:"1",fl:"39",m:"8374290",ct:1,b:51259.0,loc:"ห้องชาร์จไฟ tower 1"},
-// ── Floor 40 ──────────────────────────────
-{u:"4001",t:"Thai Samsung Electronics Co., Ltd.",tw:"1",fl:"40",m:"8374274",ct:1,b:71340.0,loc:"ห้องชาร์ปไฟทาวเวอร์ 1"},
-{u:"4002",t:"Thai Samsung Electronics Co., Ltd.",tw:"1",fl:"40",m:"8374289",ct:1,b:4935.0,loc:"ห้องชาร์ปไฟทาวเวอร์ 1"},
-{u:"4003-4",t:"Thai Samsung Electronics Co., Ltd.",tw:"2",fl:"40",m:"8374656",ct:30,b:5600.1,loc:"อยู่ในห้องชาร์ปไฟ tower 2"},
-{u:"4005",t:"Thai Samsung Electronics Co., Ltd.",tw:"3",fl:"40",m:"8494812",ct:1,b:27561.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 3"},
-{u:"4006",t:"Thai Samsung Electronics Co., Ltd.",tw:"3",fl:"40",m:"8494830",ct:1,b:22864.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์3"},
-{u:"4007",t:"Thai Samsung Electronics Co., Ltd.",tw:"3",fl:"40",m:"8494851",ct:1,b:40300.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์3"},
-{u:"4008",t:"Thai Samsung Electronics Co., Ltd.",tw:"3",fl:"40",m:"8494855",ct:1,b:73862.0,loc:"อยู่ในห้องชาร์ปไฟ T.3"},
-{u:"4009-10",t:"Thai Samsung Electronics Co., Ltd.",tw:"2",fl:"40",m:"8379632",ct:30,b:4958.9,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 2"},
-{u:"4011",t:"Thai Samsung Electronics Co., Ltd.",tw:"1",fl:"40",m:"8379924",ct:1,b:98672.0,loc:"ห้องชาร์จไฟ tower 1"},
-{u:"4012",t:"Thai Samsung Electronics Co., Ltd.",tw:"1",fl:"40",m:"8374309",ct:1,b:68170.0,loc:"ห้องชาร์ปไฟทาวเวอร์ 1"},
-// ── Floor 41 ──────────────────────────────
-{u:"4101",t:"Empty",tw:"1",fl:"41",m:"8421086",ct:1,b:37196.0,loc:"ห้องชาร์ปไฟทาวเวอร์ 1"},
-{u:"4102",t:"Empty",tw:"1",fl:"41",m:"8421045",ct:1,b:41270.0,loc:"ห้องชาร์จไฟทาวเวอร์ 1"},
-{u:"4103-4",t:"Empty (Sharing)",tw:"2",fl:"41",m:"8379590",ct:30,b:2000.7,loc:"อยู่ในห้องเช่าไฟฟ้าทาวเวอร์ 2"},
-{u:"4102 (SR41-2-1)",t:"Empty",tw:"2",fl:"41",m:"8549349",ct:50,b:5465.5,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์2"},
-{u:"4105",t:"Empty",tw:"3",fl:"41",m:"8359874",ct:1,b:56111.0,loc:"อยู่ในห้องชาร์จไฟทาวเวอร์3"},
-{u:"4106",t:"AddTech Hub Public Co.,Ltd",tw:"3",fl:"41",m:"A291-7013410-JN",ct:1,b:79101.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 3"},
-{u:"4107",t:"AddTech Hub Public Co.,Ltd",tw:"3",fl:"41",m:"8398025",ct:1,b:43592.0,loc:"อยู่ในห้องชาร์จไฟ tower 3"},
-{u:"4108",t:"Empty",tw:"3",fl:"41",m:"8398109",ct:1,b:33323.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 3"},
-{u:"4102 (server)",t:"Empty",tw:"3",fl:"41",m:"A261-6012644-TZ",ct:50,b:113.8,loc:"อยู่ในห้องชาร์ปไฟฟ้าทาวเวอร์ 3"},
-{u:"4109",t:"Empty",tw:"2",fl:"41",m:"DP-41202B",ct:1,b:18896.0,loc:"อยู่ในห้องเครื่องทั้ง 2 โซน CD"},
-{u:"4110",t:"Empty",tw:"2",fl:"41",m:"DP-41202A",ct:20,b:24377.0,loc:"อยู่ในห้องเครื่องโซน CDทาวเวอร์2"},
-{u:"4109-10",t:"Empty",tw:"2",fl:"41",m:"8371769",ct:1,b:7562.8,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 2"},
-{u:"4111",t:"Empty",tw:"1",fl:"41",m:"8421062",ct:1,b:99486.0,loc:"ห้องชาร์ปไฟทาวเวอร์ 1"},
-{u:"4112",t:"Empty",tw:"1",fl:"41",m:"8933795",ct:1,b:44896.0,loc:"ห้องชาร์ปไฟทาวเวอร์ 1"},
-// ── Floor 42 ──────────────────────────────
-{u:"4201",t:"Empty",tw:"A",fl:"42",m:"8329186",ct:1,b:72454.0,loc:"อยู่ในห้องชาร์จไฟฟ้าทาวเวอร์ 1"},
-{u:"4202",t:"Empty",tw:"1",fl:"42",m:"8359769",ct:1,b:95743.0,loc:"อยู่ในห้องชาร์จไฟ tower 1"},
-{u:"4203",t:"Cheil (Thailand) Ltd.",tw:"2",fl:"42",m:"DP-42101A",ct:20,b:40046.0,loc:"ห้องเครื่อง AB"},
-{u:"4204",t:"Cheil (Thailand) Ltd.",tw:"2",fl:"42",m:"DP-42101B",ct:20,b:19636.0,loc:"ห้องเครื่อง AB"},
-{u:"4205",t:"Empty",tw:"A",fl:"42",m:"8549184",ct:1,b:68636.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 3"},
-{u:"4206",t:"Empty",tw:"B",fl:"42",m:"A291-6004079-OE",ct:1,b:15968.0,loc:"อยู่ห้องชาร์ปทาวเวอร์ 3"},
-{u:"4207",t:"Cheil (Thailand) Ltd.",tw:"D",fl:"42",m:"8556564",ct:1,b:52390.0,loc:"อยู่ในห้องชาร์จไฟทาวเวอร์ 3"},
-{u:"4208",t:"Cheil (Thailand) Ltd.",tw:"C",fl:"42",m:"8556474",ct:1,b:44826.0,loc:"อยู่ในห้องชาร์จไฟทาวเวอร์ 3"},
-{u:"4209-10",t:"Cheil (Thailand) Ltd.",tw:"2",fl:"42",m:"8389330",ct:30,b:4700.9,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 2"},
-{u:"4211",t:"Empty",tw:"D",fl:"42",m:"8421020",ct:1,b:82122.0,loc:"ห้องชาร์ปไฟฟ้า tower 1"},
-{u:"4212",t:"Empty",tw:"1",fl:"42",m:"8360621",ct:1,b:60494.0,loc:"ห้องชาร์ปไฟฟ้าทาวเวอร์ 1"},
-// ── Floor 43 ──────────────────────────────
-{u:"4301",t:"Cristalla Co., Ltd.",tw:"1",fl:"43",m:"8379912",ct:1,b:91624.0,loc:"ห้องชาร์ปไฟฟ้า tower 1"},
-{u:"4302",t:"Cristalla Co., Ltd.",tw:"1",fl:"43",m:"8379886",ct:1,b:92144.0,loc:"ห้องชาร์ปไฟฟ้า tower 1"},
-{u:"4303-4",t:"Sharing",tw:"2",fl:"43",m:"8371814",ct:30,b:478.8,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 2"},
-{u:"4305",t:"Cristalla Co., Ltd.",tw:"3",fl:"43",m:"8561806",ct:1,b:23944.0,loc:"อยู่ในห้องชาร์จไฟทาวเวอร์3"},
-{u:"4306",t:"Cristalla Co., Ltd.",tw:"3",fl:"43",m:"8857680",ct:1,b:79119.0,loc:"อยู่ห้องชาร์ปไฟทาวเวอร์ 3"},
-{u:"4307",t:"Cristalla Co., Ltd.",tw:"3",fl:"43",m:"8549192",ct:1,b:11500.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 3"},
-{u:"4308-10,Corridor (8549197)",t:"Empty",tw:"3",fl:"43",m:"8549197",ct:1,b:25767.0,loc:"อยู่ในห้องชาร์ปไฟ tower 3"},
-{u:"4308-10,Corridor (9850791)",t:"Empty",tw:"2",fl:"43",m:"9850791",ct:30,b:925.1,loc:"อยู่ในห้องชาร์ปไฟ tower 2"},
-{u:"4309",t:"Empty",tw:"2",fl:"43",m:"DP43202B",ct:1,b:31396.0,loc:"ห้องM&E ทาวเวอร์2 โซนC, D"},
-{u:"4310",t:"TECH X CORPORATION CO.,LTD",tw:"2",fl:"43",m:"DP43202A",ct:1,b:26133.0,loc:"ห้องM&E ทาวเวอร์2 โซนC, D"},
-{u:"4311",t:"Cristalla Co., Ltd.",tw:"1",fl:"43",m:"8374292",ct:1,b:75240.0,loc:"ห้องชาร์ปไฟฟ้าทาวเวอร์ 1"},
-{u:"4311 T2(Server)",t:"Cristalla Co., Ltd.",tw:"1",fl:"43",m:"9236978",ct:1,b:37034.0,loc:"อยู่ชั้น R3 ทาวเวอร์ 2"},
-{u:"4312",t:"Cristalla Co., Ltd.",tw:"1",fl:"43",m:"8374272",ct:1,b:81461.0,loc:"ห้องชาร์ปไฟฟ้า tower 1"},
-// ── Floor 44 ──────────────────────────────
-{u:"4401",t:"Expeditors (Thailand) Ltd.",tw:"1",fl:"44",m:"8420990",ct:1,b:36393.0,loc:"ห้องชาร์ปไฟฟ้า tower 1"},
-{u:"4402",t:"Expeditors (Thailand) Ltd.",tw:"1",fl:"44",m:"8421028",ct:1,b:17524.0,loc:"ห้องชาร์ปไฟฟ้า tower 1"},
-{u:"4403",t:"Expeditors (Thailand) Ltd.",tw:"2",fl:"44",m:"DP-44201A",ct:20,b:42091.0,loc:"อยู่ในห้องเครื่องทาวเวอร์2 โซน AB"},
-{u:"4404",t:"Expeditors (Thailand) Ltd.",tw:"2",fl:"44",m:"SDP-44201B",ct:20,b:45170.0,loc:"อยู่ในห้องเครื่องทาวเวอร์ 2 โซน AB"},
-{u:"4405",t:"Empty",tw:"3",fl:"44",m:"8561970",ct:1,b:38629.0,loc:"อยู่ในห้องชาร์จไฟทาวเวอร์ 3"},
-{u:"4406",t:"Transportal Co., Ltd.",tw:"3",fl:"44",m:"8561960",ct:1,b:92051.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 3"},
-{u:"4407",t:"Thales (Thailand) Ltd.",tw:"3",fl:"44",m:"8561962",ct:1,b:52372.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 3"},
-{u:"4408",t:"Thales (Thailand) Ltd.",tw:"3",fl:"44",m:"8561948",ct:1,b:9749.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 3"},
-{u:"4409",t:"Empty",tw:"2",fl:"44",m:"DB49202",ct:20,b:7651.0,loc:"อยู่ในห้องเครื่องทาวเวอร์ 2 โซน cd"},
-{u:"4410",t:"Empty",tw:"2",fl:"44",m:"8389555",ct:20,b:3299.1,loc:"อยู่ในห้องเครื่องทาวเวอร์ 2 โซน CD"},
-{u:"4411",t:"Expeditors (Thailand) Ltd.",tw:"1",fl:"44",m:"8421057",ct:1,b:5505.0,loc:"ห้องชาร์ปไฟฟ้า tower 1"},
-{u:"4412",t:"Expeditors (Thailand) Ltd.",tw:"1",fl:"44",m:"8421015",ct:1,b:57756.0,loc:"ห้องชาร์ปไฟฟ้า tower 1"},
-// ── Floor 45 ──────────────────────────────
-{u:"4501",t:"Arysta Life Science Thailand CO.,Ltd.",tw:"1",fl:"45",m:"8503361",ct:1,b:50582.0,loc:"ห้องชาร์ปไฟทาวเวอร์ 1"},
-{u:"4502",t:"Empty",tw:"1",fl:"45",m:"8529035",ct:1,b:69488.0,loc:"ห้องชาร์ปไฟฟ้าทาวเวอร์ 1"},
-{u:"4503-04",t:"Sharing/Abercrombie & Kent/Full Join",tw:"2",fl:"45",m:"8389634",ct:40,b:4174.4,loc:"อยู่ในห้องชาร์จไฟ tower 2"},
-{u:"4503",t:"Abercrombie & Kent",tw:"2",fl:"45",m:"8371623",ct:80,b:4718.5,loc:"อยู่ในห้องเครื่องทาวเวอร์ 2 โซน AB"},
-{u:"4504",t:"Gravitiy Group",tw:"2",fl:"45",m:"8371754",ct:80,b:7119.2,loc:"อยู่ในห้องเครื่อง tower 2 โซน AB"},
-{u:"4505",t:"Empty",tw:"3",fl:"45",m:"8561885",ct:1,b:98374.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 3"},
-{u:"4506",t:"Empty",tw:"3",fl:"45",m:"8561946",ct:1,b:84866.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 3"},
-{u:"4507",t:"Empty",tw:"3",fl:"45",m:"8561875",ct:1,b:50615.0,loc:"อยู่ในห้องชาร์จไฟทาวเวอร์ 3"},
-{u:"4508",t:"WUDONG CONSTRUCTION HOLDING CO., LTD",tw:"3",fl:"45",m:"8561947",ct:1,b:39301.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 3"},
-{u:"4509-10",t:"Nikon Sales (Thailand) Co.,Ltd.",tw:"2",fl:"45",m:"8377739",ct:40,b:2275.9,loc:"อยู่ในห้องชาร์ปไฟ tower2"},
-{u:"4511",t:"Nikon Sales (Thailand) Co.,Ltd.",tw:"1",fl:"45",m:"8529019",ct:1,b:94463.0,loc:"ห้องชาร์ปไฟทาวเวอร์ 1"},
-{u:"4512",t:"Empty",tw:"1",fl:"45",m:"8529020",ct:1,b:44644.0,loc:"ห้องชาร์ปไฟทาวเวอร์ 1"},
-// ── R3 ────────────────────────────────────
-{u:"R3 (9738341)",t:"Thai Samsung Electronics Co., Ltd.",tw:"1",fl:"R3",m:"9738341",ct:50,b:8339.3,loc:"อยู่ชั้น r3 tower 1"},
-{u:"R3 (9738367)",t:"Thai Samsung Electronics Co., Ltd.",tw:"1",fl:"R3",m:"9738367",ct:50,b:3013.2,loc:"อยู่ชั้น r3 tower 1"},
-{u:"R3 (9738345)",t:"Thai Samsung Electronics Co., Ltd.",tw:"2",fl:"R3",m:"9738345",ct:50,b:2416.0,loc:"อยู่ชั้น r3 tower 2"},
-{u:"R3 (540250040058)",t:"Samsung E&A (Thailand) Co., Ltd",tw:"R3",fl:"R3",m:"540250040058",ct:1000,b:117.51,loc:"มิเตอร์อยู่ชั้น r3 tower 1"},
-{u:"R3 (8761583)",t:"T.C.C. Technology Co., Ltd.",tw:"1",fl:"R3",m:"8761583",ct:1,b:28246.0,loc:"อยู่ชั้น r3 ทาวเวอร์ 2 ข้างห้องเซฟตี้"},
-{u:"R3 (A061-6040999-JY)",t:"True Move H Universal Communication Co., Ltd.",tw:"1",fl:"R3",m:"A061-6040999-JY",ct:1,b:5687.0,loc:"อยู่ข้างหม้อแปลง r3 tower 1"},
-{u:"R3 (A281-7000238-ZT)",t:"Fax Lite Co,Ltd.(AIS)",tw:"1",fl:"R3",m:"A281-7000238-ZT",ct:1,b:74276.0,loc:"อยู่ในห้อง sharp r3 tower 1"},
-{u:"R3 (9292126)",t:"Fax Lite Co,Ltd.(AIS)",tw:"2",fl:"R3",m:"9292126",ct:1,b:9439.8,loc:"อยู่หน้าห้องหม้อแปลง r3/2"},
-{u:"R3 (A281-7000229-AG)",t:"Fax Lite Co,Ltd.(AIS)",tw:"R3",fl:"R3",m:"A281-7000229-AG",ct:1,b:92477.0,loc:"อยู่ในชาร์ป store เก็บของ r3"},
-// ── Floor 46 ──────────────────────────────
-{u:"4601",t:"Maersk Line (Thailand) Limited",tw:"1",fl:"46",m:"8615697",ct:1,b:96107.0,loc:"ห้องชาร์จไฟT1"},
-{u:"4602",t:"Maersk Logisitcs and Services (Thailand) Co., Ltd.",tw:"1",fl:"46",m:"8615706",ct:1,b:13342.0,loc:"ห้องชาร์ปไฟT1"},
-{u:"4603",t:"Maersk Logisitcs and Services (Thailand) Co., Ltd.",tw:"2",fl:"46",m:"9373787",ct:1,b:92550.0,loc:"อยู่ในห้องเครื่อง m&e tower 2 โซน AB"},
-{u:"4604",t:"Maersk Logisitcs and Services (Thailand) Co., Ltd.",tw:"3",fl:"46",m:"46201B",ct:1,b:755572.0,loc:"อยู่ในห้องเครื่อง tower 2 โซน AB"},
-{u:"4605",t:"Empty",tw:"3",fl:"46",m:"8398089",ct:1,b:29037.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 3"},
-{u:"4606",t:"Empty",tw:"3",fl:"46",m:"8398084",ct:1,b:13384.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 3"},
-{u:"4607",t:"Empty",tw:"3",fl:"46",m:"8398106",ct:1,b:3552.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 3"},
-{u:"4608",t:"Empty",tw:"3",fl:"46",m:"8398049",ct:1,b:50828.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 3"},
-{u:"4609",t:"Empty",tw:"2",fl:"46",m:"46202B",ct:1,b:178107.0,loc:"อยู่ในห้องเครื่องทาวเวอร์2 โซน CD"},
-{u:"4610",t:"Maersk Logisitcs and Services (Thailand) Co., Ltd.",tw:"2",fl:"46",m:"46202A",ct:1,b:197815.0,loc:"อยู่ในห้องเครื่อง tower 2 โซน CD"},
-{u:"4611",t:"Maersk Logisitcs and Services (Thailand) Co., Ltd.",tw:"1",fl:"46",m:"8629515",ct:1,b:95583.0,loc:"ห้องชาร์จไฟT 1"},
-{u:"4612",t:"Maersk Line (Thailand) Limited",tw:"1",fl:"46",m:"8900766",ct:1,b:48455.0,loc:"ห้องชาร์ปไฟT1"},
-{u:"Fl.46-1",t:"Maersk Logisitcs and Services (Thailand) Co., Ltd.",tw:"1",fl:"46",m:"8983777",ct:50,b:1043.0,loc:"ห้องชาร์จไฟ T1"},
-{u:"Fl.46-2",t:"Maersk Logisitcs and Services (Thailand) Co., Ltd.",tw:"2",fl:"46",m:"8983900",ct:50,b:3316.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 2"},
-];
-
-// ══ THEME TOGGLE ══
-function applyTheme(theme){
-  document.documentElement.setAttribute('data-theme', theme);
-  const icon = document.getElementById('themeIcon');
-  if(icon) icon.textContent = theme === 'light' ? '☀️' : '🌙';
-  localStorage.setItem('tw_theme', theme);
-}
-function toggleTheme(){
-  const cur = document.documentElement.getAttribute('data-theme') || 'dark';
-  applyTheme(cur === 'dark' ? 'light' : 'dark');
-}
-// Apply saved theme immediately (before render flash)
-(function(){
-  const saved = localStorage.getItem('tw_theme') || 'dark';
-  document.documentElement.setAttribute('data-theme', saved);
-})();
-const APPS_SCRIPT=`// Google Apps Script — Tower Meter Sync
-// Deploy: Web App, Execute as Me, Anyone access
-
-function doPost(e) {
-  try {
-    const data = JSON.parse(e.postData.contents);
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const tabName = data.sheetTab || 'MeterData';
-    let sheet = ss.getSheetByName(tabName);
-    if (!sheet) {
-      sheet = ss.insertSheet(tabName);
-      sheet.appendRow(['Month','Unit','Tenant','Tower','Floor',
-        'Meter No','CT','Prev','Current','Usage','DateTime','Location','ImageURL','SyncTime']);
+                <div class="p-4 rounded-lg bg-gray-800 border border-yellow-500/30">
+                    <h3 class="font-semibold text-yellow-400 mb-2">🔐 Security Rules — ตั้งใน Firebase Console</h3>
+                    <p class="text-sm text-gray-400 mb-2">Firestore Database → Rules → วางโค้ดนี้:</p>
+                    <pre class="bg-black p-3 rounded text-xs overflow-x-auto text-green-400 border border-green-500/30">rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /meters/{document=**} {
+      allow read, write: if true;
     }
-    const rows = data.rows || [];
-    rows.forEach(r => {
-      // Find existing row by Month+Unit
-      const dataRange = sheet.getDataRange();
-      const values = dataRange.getValues();
-      let found = -1;
-      for (let i = 1; i < values.length; i++) {
-        if (values[i][0] === r.month && values[i][1] === r.unit) {
-          found = i + 1; break;
+  }
+}</pre>
+                    <p class="text-xs text-yellow-400 mt-2">⚠️ Test mode อนุญาตทุกคนอ่าน/เขียน — ควรจำกัดสิทธิ์ก่อนใช้งานจริง</p>
+                </div>
+
+                <div class="p-4 rounded-lg bg-gray-800 border border-purple-500/30">
+                    <h3 class="font-semibold text-purple-400 mb-2">📄 Google Apps Script (สำหรับ export)</h3>
+                    <button onclick="showAppsScript()" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm w-full transition">
+                        📋 COPY CODE
+                    </button>
+                </div>
+
+                <button onclick="toggleSettings()" class="w-full px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition">✕ CLOSE</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Apps Script Modal -->
+    <div id="appsScriptModal" class="fixed inset-0 bg-black/80 hidden z-50 flex items-center justify-center p-4">
+        <div class="glass rounded-2xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <h2 class="text-xl font-bold mb-4">📄 Google Apps Script Code</h2>
+            <p class="text-sm text-gray-400 mb-3">ใช้สำหรับรับข้อมูลจากเว็บไปบันทึกใน Google Sheets</p>
+            <pre class="bg-black p-4 rounded-lg text-xs overflow-x-auto text-green-400 mb-4 border border-green-500/30">function doPost(e) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var data = JSON.parse(e.postData.contents);
+  
+  sheet.appendRow([
+    new Date(),
+    data.unit,
+    data.tower,
+    data.tenant,
+    data.meterNumber,
+    data.baseValue,
+    data.currentValue,
+    data.status
+  ]);
+  
+  return ContentService.createTextOutput(JSON.stringify({result: "success"}))
+    .setMimeType(ContentService.MimeType.JSON);
+}</pre>
+            <div class="flex gap-2">
+                <button onclick="closeAppsScript()" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition">CLOSE</button>
+                <button onclick="copyAppsScript()" class="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 rounded-lg transition">📋 COPY</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-20 right-4 px-4 py-3 rounded-lg bg-green-600 text-white shadow-lg hidden z-50 animate-pulse">
+        ✓ บันทึกสำเร็จ!
+    </div>
+
+    <script type="module">
+        // ✅ Import Firebase + Firestore SDK (Modular v10+)
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { 
+            getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, 
+            doc, onSnapshot, query, where, orderBy, serverTimestamp, Timestamp 
+        } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+        // ✅ Firebase Config - แก้ไขค่าจริงจาก Console ที่นี่
+        const firebaseConfig = {
+            apiKey: "AIzaSyCvwTNI0bZvN5S77Ls1BjxMvemZJ7m2vpo",
+            authDomain: "electricity-meter-record-3fca8.firebaseapp.com",
+            projectId: "electricity-meter-record-3fca8",
+            storageBucket: "electricity-meter-record-3fca8.firebasestorage.app",
+            messagingSenderId: "127166460627",
+            appId: "1:127166460627:web:09eb765da526dce6565a26"
+        };
+
+        // ✅ Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const metersCollection = collection(db, 'meters');
+
+        // ✅ Global State
+        let meters = [];
+        let autoSave = false;
+        let editingId = null;
+        let unsubscribe = null;
+
+        // ✅ Update Connection Status UI
+        function updateConnectionStatus(connected, message = '') {
+            const statusEl = document.getElementById('connectionStatus');
+            const dbStatusEl = document.getElementById('dbStatus');
+            if (connected) {
+                statusEl.textContent = '🟢 ONLINE';
+                statusEl.className = 'text-xs px-2 py-1 rounded bg-green-600';
+                if (dbStatusEl) {
+                    dbStatusEl.textContent = 'เชื่อมต่อแล้ว';
+                    dbStatusEl.className = 'text-green-400';
+                }
+            } else {
+                statusEl.textContent = '🔴 OFFLINE';
+                statusEl.className = 'text-xs px-2 py-1 rounded bg-red-600';
+                if (dbStatusEl) {
+                    dbStatusEl.textContent = message || 'ไม่สามารถเชื่อมต่อได้';
+                    dbStatusEl.className = 'text-red-400';
+                }
+            }
         }
-      }
-      const row = [r.month,r.unit,r.tenant,r.tower,r.floor,r.meter,
-        r.ct,r.prev,r.current,r.usage,r.datetime,r.location,r.imageUrl||'',new Date()];
-      if (found > 0) sheet.getRange(found, 1, 1, row.length).setValues([row]);
-      else sheet.appendRow(row);
-    });
-    return ContentService.createTextOutput(
-      JSON.stringify({status:'OK',rows:rows.length})
-    ).setMimeType(ContentService.MimeType.JSON);
-  } catch(err) {
-    return ContentService.createTextOutput(
-      JSON.stringify({status:'ERROR',msg:err.toString()})
-    ).setMimeType(ContentService.MimeType.JSON);
-  }
-}`;
 
-// ══ MONTH ══
-const MN=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-const SY=2026,SM=4;
-function mk(y,m){return`${y}-${String(m).padStart(2,'0')}`}
-function ym(k){const p=k.split('-');return{y:+p[0],m:+p[1]}}
-function ml(k){const{y,m}=ym(k);return`${MN[m-1]} ${y}`}
-function pmk(k){const{y,m}=ym(k);return m===1?mk(y-1,12):mk(y,m-1)}
-function nmk(k){const{y,m}=ym(k);return m===12?mk(y+1,1):mk(y,m+1)}
-function mlist(){
-  const a=[],n=new Date();let y=SY,m=SM;
-  const ey=n.getFullYear(),em=n.getMonth()+2;
-  while(y<ey||(y===ey&&m<=em)){a.push(mk(y,m));m++;if(m>12){m=1;y++;}if(a.length>36)break;}
-  return a;
-}
+        // ✅ Show Toast Notification
+        function showToast(msg, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = type === 'success' ? '✓ ' + msg : '❌ ' + msg;
+            toast.className = `fixed bottom-20 right-4 px-4 py-3 rounded-lg shadow-lg z-50 animate-pulse ${type === 'success' ? 'bg-green-600' : 'bg-red-600'} text-white`;
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 3000);
+        }
 
-// ══ STATE ══
-let meters=[],readings={},prevOv={};
-let curKey=mk(SY,SM),editIdx=-1;
-let fbListener=null;   // Firebase realtime listener handle
-let isSyncing=false;
+        // ✅ Real-time Listener (Firestore)
+        function setupRealtimeListener() {
+            const q = query(metersCollection, orderBy('createdAt', 'desc'));
+            
+            unsubscribe = onSnapshot(q, 
+                (snapshot) => {
+                    meters = snapshot.docs.map(doc => {
+                        const data = doc.data();
+                        // Convert Timestamp to ISO string for compatibility
+                        if (data.createdAt instanceof Timestamp) {
+                            data.createdAt = data.createdAt.toDate().toISOString();
+                        }
+                        return { id: doc.id, ...data };
+                    });
+                    renderMeters();
+                    updateStats();
+                    updateConnectionStatus(true);
+                },
+                (error) => {
+                    console.error('Firestore error:', error);
+                    updateConnectionStatus(false, error.message);
+                    document.getElementById('metersGrid').innerHTML = `
+                        <div class="col-span-full text-center py-12 text-red-400">
+                            <div class="text-4xl mb-2">❌</div>
+                            <div>ไม่สามารถเชื่อมต่อ Firestore ได้</div>
+                            <div class="text-sm text-gray-400 mt-2">${error.code}: ${error.message}</div>
+                            <div class="text-xs text-gray-500 mt-1">ตรวจสอบ Security Rules ใน Firebase Console</div>
+                            <button onclick="location.reload()" class="mt-4 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 rounded transition">🔄 Retry</button>
+                        </div>
+                    `;
+                }
+            );
+        }
 
-function init(){
-  // Apply saved theme
-  const savedTheme = localStorage.getItem('tw_theme') || 'dark';
-  applyTheme(savedTheme);
-  // Load local fallback data
-  const sm=localStorage.getItem('tw_m');
-  const sp=localStorage.getItem('tw_p');
-  meters=sm?JSON.parse(sm):JSON.parse(JSON.stringify(RAW));
-  prevOv=sp?JSON.parse(sp):{};
-  const n=new Date(),nk=mk(n.getFullYear(),n.getMonth()+1),list=mlist();
-  curKey=list.includes(nk)?nk:list[list.length-1];
-  setSyncUI('connecting','CONNECTING...');
-  buildTabs();render();
-  // Load prevOv from Firebase
-  fbDB.ref('prevOv').once('value').then(snap=>{
-    if(snap.val()) prevOv=snap.val();
-    saveLocal();
-  }).catch(()=>{});
-  // Start Firebase realtime listener for current month
-  listenFirebase(curKey);
-}
+        // ✅ Render Meters Grid
+        function renderMeters() {
+            const grid = document.getElementById('metersGrid');
+            const searchTerm = (document.getElementById('searchInput')?.value || '').toLowerCase();
+            const towerFilter = document.getElementById('towerFilter')?.value || '';
+            const statusFilter = document.getElementById('statusFilter')?.value || '';
 
-function saveLocal(){
-  localStorage.setItem('tw_m',JSON.stringify(meters));
-  localStorage.setItem('tw_p',JSON.stringify(prevOv));
-}
+            let filtered = meters.filter(m => {
+                const matchSearch = !searchTerm || 
+                    (m.unit && m.unit.toLowerCase().includes(searchTerm)) ||
+                    (m.tenant && m.tenant.toLowerCase().includes(searchTerm)) ||
+                    (m.meterNumber && m.meterNumber.toLowerCase().includes(searchTerm)) ||
+                    (m.location && m.location.toLowerCase().includes(searchTerm));
+                const matchTower = !towerFilter || m.tower === towerFilter;
+                const matchStatus = !statusFilter || m.status === statusFilter;
+                return matchSearch && matchTower && matchStatus;
+            });
 
-// ══ SYNC UI ══
-function setSyncUI(state, label){
-  const dot=document.getElementById('syncDot');
-  const lbl=document.getElementById('syncLbl');
-  const modal=document.getElementById('fbStatusInModal');
-  if(!dot||!lbl) return;
-  dot.className='sync-dot '+(state==='ok'?'':state==='connecting'?'syncing':'off');
-  lbl.textContent=label;
-  if(modal) modal.textContent = state==='ok'?'🟢 เชื่อมต่อแล้ว — Realtime':state==='connecting'?'🔄 กำลังเชื่อมต่อ...':'🔴 เชื่อมต่อไม่ได้';
-  if(modal && state==='ok') modal.style.color='var(--emerald)';
-  else if(modal && state==='connecting') modal.style.color='var(--amber)';
-  else if(modal) modal.style.color='var(--rose)';
-}
+            if (filtered.length === 0) {
+                grid.innerHTML = '<div class="col-span-full text-center py-12 text-gray-500">// NO RESULTS //</div>';
+                return;
+            }
 
-// ══ FIREBASE REALTIME LISTENER ══
-// สาน path: readings_YYYY_MM/<safeUnit>
-function fbPath(monthKey){ return 'readings_'+monthKey.replace('-','_'); }
-function safeKey(u){ return u.replace(/[.#$/\[\]]/g,'_'); }
-function unsafeKey(sk){ return sk; } // units อาจไม่ตรงหาก map ไว้
+            grid.innerHTML = filtered.map(meter => `
+                <div class="glass rounded-xl p-4 border border-gray-700 hover:border-cyan-500/50 transition group">
+                    <div class="flex justify-between items-start mb-3">
+                        <div>
+                            <div class="flex gap-2 items-center flex-wrap">
+                                <span class="px-2 py-1 rounded bg-cyan-600 text-sm font-semibold">${meter.unit || 'N/A'}</span>
+                                <span class="px-2 py-1 rounded bg-purple-600 text-xs">${meter.tower || 'N/A'}</span>
+                            </div>
+                            <div class="text-sm text-gray-400 mt-1">${meter.tenant || 'Empty'}</div>
+                            <div class="text-xs text-gray-500">📊 ${meter.meterNumber || 'N/A'}</div>
+                        </div>
+                        <div class="flex gap-1">
+                            <button onclick="editMeter('${meter.id}')" class="px-3 py-1 rounded bg-gray-700 hover:bg-gray-600 text-sm transition">✏️</button>
+                            <button onclick="deleteMeter('${meter.id}')" class="px-3 py-1 rounded bg-red-700 hover:bg-red-600 text-sm transition">🗑</button>
+                        </div>
+                    </div>
+                    <div class="space-y-2 text-sm">
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">PREV Mar 2026</span>
+                            <span class="font-mono">${(meter.baseValue || 0).toLocaleString()}</span>
+                        </div>
+                        <div class="flex gap-2">
+                            <input type="number" step="0.001" value="${meter.currentValue || 0}" 
+                                   onchange="updateMeter('${meter.id}', 'currentValue', parseFloat(this.value))"
+                                   class="flex-1 px-3 py-2 rounded bg-gray-800 border border-gray-600 font-mono text-right">
+                            <button onclick="toggleStatus('${meter.id}', '${meter.status}')" 
+                                    class="px-3 py-2 rounded ${meter.status === 'done' ? 'bg-green-600 hover:bg-green-700' : 'bg-yellow-600 hover:bg-yellow-700'} transition">
+                                ${meter.status === 'done' ? '✓' : '⏳'}
+                            </button>
+                        </div>
+                        ${meter.location ? `<div class="text-xs text-gray-500">📍 ${meter.location}</div>` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
 
-function listenFirebase(monthKey){
-  // ยกเลิก listener เก่า
-  if(fbListener){ fbListener(); fbListener=null; }
-  const path = fbPath(monthKey);
-  setSyncUI('connecting','CONNECTING...');
-  const ref = fbDB.ref(path);
-  fbListener = ref.on('value', snapshot => {
-    const fbData = snapshot.val() || {};
-    if(!readings[monthKey]) readings[monthKey]={};
-    // Merge Firebase → local readings
-    Object.keys(fbData).forEach(sk=>{
-      // map safeKey กลับหา unit จริง
-      const meter=meters.find(m=>safeKey(m.u)===sk);
-      const unit=meter?meter.u:sk;
-      readings[monthKey][unit]=fbData[sk];
-    });
-    render();
-    buildTabs();
-    setSyncUI('ok','LIVE 🟢');
-  }, err=>{
-    setSyncUI('off','ERROR ⚠️');
-    toast('❌ Firebase: '+err.message);
-  });
-}
+        // ✅ Update Stats
+        function updateStats() {
+            const done = meters.filter(m => m.status === 'done').length;
+            document.getElementById('totalCount').textContent = meters.length;
+            document.getElementById('doneCount').textContent = done;
+            document.getElementById('pendingCount').textContent = meters.length - done;
+            document.getElementById('doneProgress').textContent = done;
+            document.getElementById('totalProgress').textContent = meters.length;
+            document.getElementById('currentDate').textContent = `Apr 2026 • ${meters.length} METERS`;
+        }
 
-// ══ WRITE TO FIREBASE ══
-function fbWrite(unit, data){
-  const path = fbPath(curKey)+'/'+safeKey(unit);
-  fbDB.ref(path).set(data).catch(e=>toast('⚠️ Save error: '+e.message));
-}
+        // ✅ Add New Meter
+        async function addMeter(data) {
+            try {
+                await addDoc(metersCollection, {
+                    ...data,
+                    status: 'pending',
+                    createdAt: serverTimestamp()
+                });
+                showToast('บันทึกข้อมูลสำเร็จ!');
+                closeAddModal();
+                document.getElementById('addForm')?.reset();
+            } catch (error) {
+                console.error('Error adding meter:', error);
+                showToast('เกิดข้อผิดพลาด: ' + error.message, 'error');
+            }
+        }
 
-// ══ PREV VALUE ══
-function getPrev(unit,mkey){
-  if(prevOv[mkey]&&prevOv[mkey][unit]!==undefined)return prevOv[mkey][unit];
-  if(mkey===mk(SY,SM)){const x=meters.find(m=>m.u===unit);return x?x.b:0;}
-  const pk=pmk(mkey),pr=(readings[pk]||{})[unit];
-  if(pr&&pr.cur!=null&&pr.cur!=='')return parseFloat(pr.cur);
-  return getPrev(unit,pk);
-}
+        // ✅ Update Meter Field
+        async function updateMeter(id, field, value) {
+            try {
+                const meterRef = doc(db, 'meters', id);
+                await updateDoc(meterRef, { [field]: value });
+                if (autoSave) showToast('อัปเดตแล้ว');
+            } catch (error) {
+                console.error('Error updating meter:', error);
+                showToast('เกิดข้อผิดพลาด: ' + error.message, 'error');
+            }
+        }
 
-// ══ TABS ══
-function buildTabs(){
-  const list=mlist(),el=document.getElementById('mstrip');
-  el.innerHTML='';
-  list.forEach(k=>{
-    const b=document.createElement('button');
-    b.className='mtab'+(k===curKey?' active':'');
-    const mr=readings[k]||{};
-    if(Object.values(mr).some(r=>r&&r.cur!=null&&r.cur!==''))b.classList.add('has');
-    b.textContent=ml(k);
-    b.onclick=()=>{
-      curKey=k;
-      buildTabs();render();
-      listenFirebase(k); // switch Firebase listener to new month
-    };
-    el.appendChild(b);
-  });
-  setTimeout(()=>{const a=el.querySelector('.active');if(a)a.scrollIntoView({behavior:'smooth',inline:'center',block:'nearest'});},80);
-  document.getElementById('logoSub').textContent=`${ml(curKey)} · ${meters.length} METERS`;
-}
+        // ✅ Toggle Status
+        async function toggleStatus(id, currentStatus) {
+            const newStatus = currentStatus === 'done' ? 'pending' : 'done';
+            await updateMeter(id, 'status', newStatus);
+        }
 
-// ══ ROLLOVER ══
-function checkRollover(){
-  const mr=readings[curKey]||{},total=meters.length;
-  const done=meters.filter(m=>{const r=mr[m.u];return r&&r.cur!=null&&r.cur!==''}).length;
-  const nk=nmk(curKey),list=mlist(),banner=document.getElementById('rollB');
-  if(done===total&&done>0&&list.includes(nk)){
-    document.getElementById('rollD').textContent=`COMPLETE ${done}/${total} → ROLLOVER TO ${ml(nk)}`;
-    banner.classList.remove('off');
-  }else banner.classList.add('off');
-}
-function doRollover(){
-  const nk=nmk(curKey),mr=readings[curKey]||{};
-  if(!prevOv[nk])prevOv[nk]={};
-  meters.forEach(m=>{const r=mr[m.u];if(r&&r.cur!=null&&r.cur!=='')prevOv[nk][m.u]=parseFloat(r.cur);});
-  save();toast('✅ ROLLED OVER → '+ml(nk));curKey=nk;buildTabs();render();
-}
+        // ✅ Edit Meter (Load to Modal)
+        function editMeter(id) {
+            const meter = meters.find(m => m.id === id);
+            if (!meter) return;
 
-// ══ TOWER TAG CLASS ══
-function twClass(tw){
-  const t=String(tw).trim();
-  if(t==='1')return'tw-1';
-  if(t==='2')return'tw-2';
-  if(t==='3')return'tw-3';
-  if(t.toUpperCase().includes('R3'))return'tw-r';
-  return'tw-x';
-}
+            document.getElementById('modalTitle').textContent = '✏️ EDIT METER';
+            document.getElementById('inputUnit').value = meter.unit || '';
+            document.getElementById('inputTower').value = meter.tower || 'Tower 1';
+            document.getElementById('inputA').value = meter.a || '';
+            document.getElementById('inputB').value = meter.b || '';
+            document.getElementById('inputC').value = meter.c || '';
+            document.getElementById('inputD').value = meter.d || '';
+            document.getElementById('inputTenant').value = meter.tenant || '';
+            document.getElementById('inputMeterNumber').value = meter.meterNumber || '';
+            document.getElementById('inputCT').value = meter.ct || '';
+            document.getElementById('inputBaseValue').value = meter.baseValue || '';
+            document.getElementById('inputLocation').value = meter.location || '';
 
-// ══ RENDER ══
-function render(){
-  const q=document.getElementById('srch').value.toLowerCase();
-  const tw=document.getElementById('fTw').value;
-  const st=document.getElementById('fSt').value;
-  const mr=readings[curKey]||{};
+            editingId = id;
+            document.getElementById('addModal').classList.remove('hidden');
+        }
 
-  let list=meters.filter(m=>{
-    const mq=!q||m.u.toLowerCase().includes(q)||m.t.toLowerCase().includes(q)||m.m.toLowerCase().includes(q)||m.fl.toLowerCase().includes(q)||m.tw.toLowerCase().includes(q);
-    const mt=!tw||m.tw===tw||(tw==='R3'&&m.fl==='R3');
-    const r=mr[m.u],done=r&&r.cur!=null&&r.cur!=='';
-    return mq&&mt&&(!st||(st==='done'?done:!done));
-  });
+        // ✅ Delete Meter
+        async function deleteMeter(id) {
+            if (!confirm('ต้องการลบข้อมูลนี้ใช่หรือไม่?')) return;
+            try {
+                await deleteDoc(doc(db, 'meters', id));
+                showToast('ลบข้อมูลแล้ว');
+            } catch (error) {
+                console.error('Error deleting meter:', error);
+                showToast('เกิดข้อผิดพลาด: ' + error.message, 'error');
+            }
+        }
 
-  const wrap=document.getElementById('cards'),emp=document.getElementById('emp');
-  if(!list.length){wrap.innerHTML='';emp.style.display='block';updateStats(mr);checkRollover();return;}
-  emp.style.display='none';
+        // ✅ Export to CSV
+        function exportCSV() {
+            const headers = ['Unit', 'Tower', 'Tenant', 'Meter Number', 'CT', 'Base Value', 'Current Value', 'Location', 'Status', 'Date'];
+            const rows = meters.map(m => [
+                m.unit, m.tower, m.tenant, m.meterNumber, m.ct,
+                m.baseValue, m.currentValue, m.location, m.status,
+                m.createdAt ? new Date(m.createdAt).toLocaleDateString('th-TH') : ''
+            ]);
+            const csv = [headers, ...rows].map(row => row.map(v => `"${v}"`).join(',')).join('\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `meters_${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+            showToast('Export CSV สำเร็จ!');
+        }
 
-  // Group by floor
-  const floors=['38','39','40','41','42','43','44','45','R3','46'];
-  let html='';
-  floors.forEach(fl=>{
-    const fl_list=list.filter(m=>m.fl===fl);
-    if(!fl_list.length)return;
-    const lbl=fl==='R3'?'R3 — Mechanical Floor':`FLOOR ${fl}`;
-    html+=`<div class="grp-hdr"><div class="grp-label">${lbl}</div><div class="grp-line"></div></div>`;
-    html+=fl_list.map(m=>cardHTML(m,mr)).join('');
-  });
-  wrap.innerHTML=html;
-  updateStats(mr);checkRollover();
-}
+        // ✅ Refresh Data
+        async function refreshData() {
+            showToast('กำลังซิงค์ข้อมูล...');
+            // Real-time listener จะอัปเดตอัตโนมัติ
+        }
 
-function cardHTML(m,mr){
-  const rec=mr[m.u]||{};
-  const prev=getPrev(m.u,curKey);
-  const hasCur=rec.cur!=null&&rec.cur!=='';
-  const cur=hasCur?parseFloat(rec.cur):null;
-  const usage=hasCur?(cur-prev)*m.ct:null;
-  let chipH='<span class="usage-chip">— unit</span>';
-  if(usage!=null){
-    const cls=usage>0?'up':usage<0?'dn':'';
-    chipH=`<span class="usage-chip ${cls}">${usage>0?'+':''}${usage.toLocaleString('th',{minimumFractionDigits:1,maximumFractionDigits:2})}</span>`;
-  }
-  const hasImg=!!(rec.img);
-  const ctH=m.ct!==1?`<span class="ct-tag">CT×${m.ct}</span>`:'';
-  const tc=twClass(m.tw);
-  return `<div class="card ${hasCur?'done':''}">
-<div class="card-head">
-  <div class="card-left">
-    <div class="unit-row">
-      <span class="unit-badge">${esc(m.u)}</span>
-      <span class="tower-tag ${tc}">T${esc(m.tw)}</span>
-      ${ctH}
-    </div>
-    <div class="tenant" title="${esc(m.t)}">${esc(m.t)}</div>
-    <div class="meter-no">📟 ${esc(m.m)}</div>
-  </div>
-  <div class="card-right">
-    <div class="status-dot ${hasCur?'dot-ok':'dot-no'}"></div>
-    <button class="edit-btn" onclick="openEdit(${meters.indexOf(m)})">EDIT</button>
-  </div>
-</div>
-<div class="prev-row">
-  <span class="prev-lbl">PREV ${ml(pmk(curKey))}</span>
-  <span class="prev-val">${fN(prev)}</span>
-</div>
-<div class="inp-area">
-  <div class="inp-wrap">
-    <span class="inp-icon">⚡</span>
-    <input type="number" inputmode="decimal" class="meter-inp ${hasCur?'ok':''}"
-      step="0.0001" placeholder="${fN(prev)}"
-      value="${hasCur?rec.cur:''}"
-      onchange="upd('${esc(m.u)}',this.value)"
-      oninput="vInp(this,'${esc(m.u)}')"
-      onfocus="this.select()">
-  </div>
-  ${chipH}
-</div>
-<div class="img-section">
-  ${hasImg?`
-  <div style="position:relative">
-    <div class="img-preview-big" onclick="viewImg('${esc(m.u)}')">
-      <img src="${rec.img}" alt="meter" loading="lazy">
-    </div>
-    <button class="img-delete-btn" onclick="delImg('${esc(m.u)}')">✕ ลบรูป</button>
-  </div>
-  <div class="img-action-row">
-    <button class="view-full" onclick="viewImg('${esc(m.u)}')">🔍 ดูภาพเต็ม</button>
-    <div class="cam-btns" style="flex:1">
-      <label class="cam-btn cam">📷 ถ่ายใหม่<input type="file" accept="image/*" capture="environment" onchange="handleImg(this,'${esc(m.u)}')"></label>
-      <label class="cam-btn alb">🖼 อัลบั้ม<input type="file" accept="image/*" onchange="handleImg(this,'${esc(m.u)}')"></label>
-    </div>
-  </div>
-  `:`
-  <div class="no-photo"><div class="ni">📷</div><div class="nt">NO PHOTO</div></div>
-  <div class="cam-btns">
-    <label class="cam-btn cam">📷 ถ่ายรูปจากกล้อง<input type="file" accept="image/*" capture="environment" onchange="handleImg(this,'${esc(m.u)}')"></label>
-    <label class="cam-btn alb">🖼 เลือกจากอัลบั้ม<input type="file" accept="image/*" onchange="handleImg(this,'${esc(m.u)}')"></label>
-  </div>
-  `}
-</div>
-<div class="bot-row">
-  <input type="datetime-local" class="dt-inp" value="${rec.dt||''}" onchange="updDT('${esc(m.u)}',this.value)" title="วันที่/เวลาที่จด">
-  <span class="loc-txt" title="${esc(m.loc)}">📍 ${esc(m.loc)}</span>
-</div>
-</div>`;
-}
+        // ✅ Export to Google Sheets (Placeholder)
+        function exportToSheets() {
+            showToast('กรุณาตั้งค่า Google Apps Script ตามคู่มือ');
+        }
 
-function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;')}
-function fN(v){return v==null?'—':Number(v).toLocaleString('th',{minimumFractionDigits:4,maximumFractionDigits:4})}
+        // ✅ Clear All Data
+        async function clearAllData() {
+            if (!confirm('⚠️ ต้องการลบข้อมูลทั้งหมดใน collection "meters" ใช่หรือไม่?\nการกระทำนี้ไม่สามารถย้อนกลับได้!')) return;
+            try {
+                const snapshot = await getDocs(metersCollection);
+                const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref));
+                await Promise.all(deletePromises);
+                showToast('ลบข้อมูลทั้งหมดแล้ว');
+            } catch (error) {
+                console.error('Error clearing data:', error);
+                showToast('เกิดข้อผิดพลาด: ' + error.message, 'error');
+            }
+        }
 
-// ══ UPDATE ══
-function nowDT(){const n=new Date();return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}T${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`}
+        // ✅ Modal Functions
+        window.openAddModal = () => {
+            editingId = null;
+            document.getElementById('modalTitle').textContent = '➕ ADD METER';
+            document.getElementById('addForm')?.reset();
+            document.getElementById('addModal').classList.remove('hidden');
+        };
 
-function upd(unit,val){
-  if(!readings[curKey])readings[curKey]={};
-  if(!readings[curKey][unit])readings[curKey][unit]={};
-  readings[curKey][unit].cur=val;
-  if(!readings[curKey][unit].dt)readings[curKey][unit].dt=nowDT();
-  // Write to Firebase (realtime — ทุกเครื่องจะรับอัตโนมัติ)
-  fbWrite(unit, readings[curKey][unit]);
-  if(val)toast(`✅ ${unit} = ${parseFloat(val).toLocaleString('th',{minimumFractionDigits:4})}`);
-}
-function vInp(el,unit){
-  const prev=getPrev(unit,curKey),v=parseFloat(el.value);
-  if(el.value&&v<prev){el.classList.add('err');el.classList.remove('ok');}
-  else if(el.value){el.classList.remove('err');el.classList.add('ok');}
-  else el.classList.remove('err','ok');
-}
-function updDT(unit,val){
-  if(!readings[curKey])readings[curKey]={};
-  if(!readings[curKey][unit])readings[curKey][unit]={};
-  readings[curKey][unit].dt=val;
-  fbWrite(unit, readings[curKey][unit]);
-}
+        window.closeAddModal = () => {
+            document.getElementById('addModal').classList.add('hidden');
+            editingId = null;
+        };
 
-// ══ IMAGE ══
-function handleImg(inp,unit){
-  const file=inp.files[0];if(!file)return;
-  const reader=new FileReader();
-  reader.onload=async e=>{
-    const img2=new Image();
-    img2.onload=async()=>{
-      const canvas=document.createElement('canvas');
-      const max=1200;let w=img2.width,h=img2.height;
-      if(w>max){h=Math.round(h*max/w);w=max;}
-      if(h>max&&h>w){w=Math.round(w*max/h);h=max;}
-      canvas.width=w;canvas.height=h;
-      canvas.getContext('2d').drawImage(img2,0,0,w,h);
-      const data=canvas.toDataURL('image/jpeg',0.75);
-      if(!readings[curKey])readings[curKey]={};
-      if(!readings[curKey][unit])readings[curKey][unit]={};
-      readings[curKey][unit].img=data;
-      if(!readings[curKey][unit].dt)readings[curKey][unit].dt=nowDT();
-      // Write to Firebase (img เป็น base64 — เก็บได้ไม่เกิน 10MB/node)
-      fbWrite(unit, readings[curKey][unit]);
-      render();
-      toast('📷 ได้ภาพแล้ว — AI กำลังอ่านค่า...');
-      await runOCR(data,unit);
-    };
-    img2.src=e.target.result;
-  };
-  reader.readAsDataURL(file);
-}
-function delImg(unit){
-  if(!confirm('ลบรูปภาพนี้?'))return;
-  if(readings[curKey]&&readings[curKey][unit])delete readings[curKey][unit].img;
-  fbWrite(unit, readings[curKey][unit]);
-  render();toast('🗑 ลบรูปแล้ว');
-}
-async function runOCR(imgData,unit){
-  try{
-    const b64=imgData.split(',')[1];
-    const res=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:200,
-        messages:[{role:'user',content:[
-          {type:'image',source:{type:'base64',media_type:'image/jpeg',data:b64}},
-          {type:'text',text:'อ่านตัวเลขบนหน้าจอมิเตอร์ไฟฟ้า ตอบเป็น JSON เท่านั้น:\n{"value":<number or null>,"confidence":"high|medium|low"}'}
-        ]}]
-      })
-    });
-    const d=await res.json();
-    const txt=d.content?.map(c=>c.text||'').join('').trim().replace(/```json?|```/g,'').trim();
-    const p=JSON.parse(txt);
-    if(p.value!=null){
-      if(!readings[curKey][unit].cur){
-        readings[curKey][unit].cur=String(p.value);
-        fbWrite(unit, readings[curKey][unit]);
-        render();
-      }
-      toast(`🤖 AI: ${p.value} (${p.confidence})`);
-    }else toast('📷 บันทึกแล้ว — กรุณากรอกค่าเอง');
-  }catch{toast('📷 บันทึกแล้ว — กรุณากรอกค่าเอง');}
-}
-function viewImg(unit){
-  const rec=(readings[curKey]||{})[unit]||{};
-  if(!rec.img){toast('ไม่มีภาพ');return;}
-  document.getElementById('imgEl').src=rec.img;
-  document.getElementById('imgOv').classList.add('open');
-}
+        window.toggleSettings = () => {
+            document.getElementById('settingsModal').classList.toggle('hidden');
+        };
 
-// ══ STATS ══
-function updateStats(mr){
-  const total=meters.length;let done=0;
-  meters.forEach(m=>{const r=mr[m.u];if(r&&r.cur!=null&&r.cur!=='')done++;});
-  document.getElementById('sA').textContent=total;
-  document.getElementById('sD').textContent=done;
-  document.getElementById('sP').textContent=total-done;
-  document.getElementById('progLbl').textContent=`${done}/${total}`;
-  document.getElementById('pfill').style.width=total?`${(done/total)*100}%`:'0%';
-}
+        window.showAppsScript = () => {
+            document.getElementById('appsScriptModal').classList.remove('hidden');
+        };
 
-// ══ MANUAL SYNC (force re-read from Firebase) ══
-function pushToSheet(){
-  toast('🔄 กำลัง sync จาก Firebase...');
-  setSyncUI('connecting','SYNCING...');
-  listenFirebase(curKey);
-}
+        window.closeAppsScript = () => {
+            document.getElementById('appsScriptModal').classList.add('hidden');
+        };
 
-// ══ ROLLOVER — write prevOv to Firebase too ══
-function doRollover(){
-  const nk=nmk(curKey),mr=readings[curKey]||{};
-  if(!prevOv[nk])prevOv[nk]={};
-  meters.forEach(m=>{const r=mr[m.u];if(r&&r.cur!=null&&r.cur!=='')prevOv[nk][m.u]=parseFloat(r.cur);});
-  // Save prevOv to Firebase
-  fbDB.ref('prevOv').set(prevOv).catch(()=>{});
-  saveLocal();
-  toast('✅ ROLLED OVER → '+ml(nk));curKey=nk;buildTabs();render();
-  listenFirebase(nk);
-}
+        window.copyAppsScript = () => {
+            const code = document.querySelector('#appsScriptModal pre').textContent;
+            navigator.clipboard.writeText(code).then(() => showToast('คัดลอกโค้ดแล้ว!'));
+        };
 
-// ══ SETTINGS — ยังเปิด modal ได้ แต่ใช้ Firebase แล้ว ไม่ต้อง Sheet URL ══
-function openSettings(){
-  document.getElementById('settingsOv').classList.add('open');
-}
-function closeSettings(){document.getElementById('settingsOv').classList.remove('open')}
-function saveSettings(){
-  closeSettings();
-  toast('✅ Firebase พร้อมใช้งานแล้ว');
-}
-function viewScript(){
-  document.getElementById('scriptText').textContent=APPS_SCRIPT;
-  document.getElementById('scriptOv').classList.add('open');
-}
-function copyScript(){
-  navigator.clipboard.writeText(APPS_SCRIPT).then(()=>toast('📋 Copy Script แล้ว!'));
-}
+        window.toggleTheme = () => {
+            document.body.classList.toggle('light-theme');
+            const btn = event.currentTarget;
+            btn.textContent = document.body.classList.contains('light-theme') ? '🌙' : '☀️';
+        };
 
-// ══ EDIT MODAL ══
-function openAdd(){
-  editIdx=-1;document.getElementById('eTi').textContent='ADD METER';document.getElementById('eIc').textContent='➕';
-  ['eU','eT','eM','eL'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('eC').value=1;document.getElementById('eB').value='';
-  document.getElementById('eTw').value='1';document.getElementById('editOv').classList.add('open');
-}
-function openEdit(idx){
-  editIdx=idx;const m=meters[idx];
-  document.getElementById('eTi').textContent='EDIT METER';document.getElementById('eIc').textContent='✏️';
-  document.getElementById('eU').value=m.u;document.getElementById('eT').value=m.t;
-  document.getElementById('eTw').value=m.tw;document.getElementById('eM').value=m.m;
-  document.getElementById('eC').value=m.ct;document.getElementById('eB').value=m.b;
-  document.getElementById('eL').value=m.loc;document.getElementById('editOv').classList.add('open');
-}
-function closeEdit(){document.getElementById('editOv').classList.remove('open')}
-function saveEdit(){
-  const u=document.getElementById('eU').value.trim();
-  const t=document.getElementById('eT').value.trim();
-  const m2=document.getElementById('eM').value.trim();
-  if(!u||!t||!m2){toast('⚠️ กรุณากรอกข้อมูลที่จำเป็น');return;}
-  const tw=document.getElementById('eTw').value;
-  // Guess floor from unit
-  const fl2=u.match(/^(\d{2})/)?u.substring(0,2):u.toUpperCase().includes('R3')?'R3':'?';
-  const obj={u,t,tw,fl:fl2,m:m2,ct:parseInt(document.getElementById('eC').value)||1,
-    b:parseFloat(document.getElementById('eB').value)||0,
-    loc:document.getElementById('eL').value.trim()};
-  if(editIdx>=0){meters[editIdx]=obj;toast('✅ แก้ไขแล้ว');}
-  else{meters.push(obj);toast('✅ เพิ่มมิเตอร์แล้ว');}
-  saveLocal();closeEdit();render();
-}
+        window.toggleAutoSave = () => {
+            autoSave = !autoSave;
+            const btn = document.getElementById('autoSaveBtn');
+            btn.classList.toggle('bg-green-600', autoSave);
+            btn.classList.toggle('hover:bg-green-700', autoSave);
+            showToast(autoSave ? 'เปิด Auto-Save' : 'ปิด Auto-Save');
+        };
 
-// ══ EXPORT ══
-function expCSV(){
-  const mr=readings[curKey]||{},pk=pmk(curKey);
-  const h=['Unit','Tenant','Tower','Floor','Meter No.','CT',`Prev (${ml(pk)})`,`Current (${ml(curKey)})`,'Units Used','DateTime','Location'];
-  const rows=meters.map(m=>{
-    const r=mr[m.u]||{},hc=r.cur!=null&&r.cur!=='';
-    const prev=getPrev(m.u,curKey);
-    const usage=hc?((parseFloat(r.cur)-prev)*m.ct).toFixed(4):'';
-    return[m.u,m.t,m.tw,m.fl,m.m,m.ct,prev,hc?r.cur:'',usage,r.dt||'',m.loc].map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',');
-  });
-  const csv='\uFEFF'+[h.join(','),...rows].join('\n');
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
-  a.download=`tower_meter_${curKey}.csv`;a.click();toast('📥 Export CSV แล้ว');
-}
-function copyS(){
-  const mr=readings[curKey]||{};
-  const rows=meters.map(m=>{
-    const r=mr[m.u]||{},hc=r.cur!=null&&r.cur!=='';
-    const prev=getPrev(m.u,curKey);
-    const usage=hc?((parseFloat(r.cur)-prev)*m.ct).toFixed(4):'';
-    return[m.u,m.t,m.tw,m.fl,m.m,m.ct,prev,hc?r.cur:'',usage,r.dt||'',m.loc].join('\t');
-  });
-  navigator.clipboard.writeText(rows.join('\n')).then(()=>toast('📋 Copy แล้ว! วาง Sheets ได้เลย'));
-}
-function clrMonth(){
-  if(!confirm(`ล้างค่าเดือน ${ml(curKey)} ทั้งหมด?`))return;
-  readings[curKey]={};
-  // ลบข้อมูลจาก Firebase ด้วย
-  fbDB.ref(fbPath(curKey)).remove().catch(()=>{});
-  render();toast('🗑 ล้างแล้ว');
-}
+        // ✅ Form Submit Handler
+        document.getElementById('addForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const data = {
+                unit: document.getElementById('inputUnit').value.trim(),
+                tower: document.getElementById('inputTower').value,
+                a: document.getElementById('inputA').value.trim(),
+                b: document.getElementById('inputB').value.trim(),
+                c: document.getElementById('inputC').value.trim(),
+                d: document.getElementById('inputD').value.trim(),
+                tenant: document.getElementById('inputTenant').value.trim(),
+                meterNumber: document.getElementById('inputMeterNumber').value.trim(),
+                ct: document.getElementById('inputCT').value.trim(),
+                baseValue: parseFloat(document.getElementById('inputBaseValue').value) || 0,
+                location: document.getElementById('inputLocation').value.trim()
+            };
 
-// ══ TOAST ══
-let tt;
-function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.className='toast show';clearTimeout(tt);tt=setTimeout(()=>t.className='toast',3200);}
+            if (editingId) {
+                await updateMeter(editingId, data);
+                showToast('อัปเดตข้อมูลสำเร็จ!');
+            } else {
+                await addMeter(data);
+            }
+            closeAddModal();
+        });
 
-// Enter = next input
-document.addEventListener('keydown',e=>{
-  if(e.key==='Enter'&&e.target.classList.contains('meter-inp')){
-    const all=[...document.querySelectorAll('.meter-inp')],i=all.indexOf(e.target);
-    if(i<all.length-1){all[i+1].focus();all[i+1].scrollIntoView({behavior:'smooth',block:'center'});}
-  }
-});
+        // ✅ Filter Event Listeners
+        document.getElementById('searchInput')?.addEventListener('input', renderMeters);
+        document.getElementById('towerFilter')?.addEventListener('change', renderMeters);
+        document.getElementById('statusFilter')?.addEventListener('change', renderMeters);
 
-// Close modals on backdrop
-['editOv','settingsOv','scriptOv'].forEach(id=>{
-  document.getElementById(id).addEventListener('click',e=>{if(e.target===document.getElementById(id))document.getElementById(id).classList.remove('open');});
-});
+        // ✅ Initialize App
+        setupRealtimeListener();
 
-init();
-</script>
+        // ✅ Cleanup on Page Unload
+        window.addEventListener('beforeunload', () => {
+            if (unsubscribe) unsubscribe();
+        });
+
+        // ✅ Expose functions to global scope for inline onclick
+        window.updateMeter = updateMeter;
+        window.toggleStatus = toggleStatus;
+        window.editMeter = editMeter;
+        window.deleteMeter = deleteMeter;
+        window.exportCSV = exportCSV;
+        window.refreshData = refreshData;
+        window.exportToSheets = exportToSheets;
+        window.clearAllData = clearAllData;
+    </script>
 </body>
 </html>
