@@ -3,13 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>Electricity Meter Recorder</title>
+<title>⚡ Tower Meter</title>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-<!-- Firebase SDK -->
+<!-- Firebase SDK v10 compat — Firestore -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script>
+// ════════════════════════════════════════════
+// FIREBASE CONFIG — electricity-meter-record
+// ════════════════════════════════════════════
 const firebaseConfig = {
   apiKey:            "AIzaSyCvwTNI0bZvN5S77Ls1BjxMvemZJ7m2vpo",
   authDomain:        "electricity-meter-record-3fca8.firebaseapp.com",
@@ -19,375 +21,461 @@ const firebaseConfig = {
   appId:             "1:127166460627:web:09eb765da526dce6565a26"
 };
 firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
-const db   = firebase.firestore();
-db.enablePersistence({synchronizeTabs:true}).catch(()=>{});
+// ใช้ Cloud Firestore (default database ที่มีอยู่แล้ว)
+const db = firebase.firestore();
+// Enable offline persistence — ใช้งานได้แม้ไม่มี internet
+db.enablePersistence({ synchronizeTabs: true }).catch(err => {
+  if (err.code === 'failed-precondition') console.warn('Firestore: multi-tab persistence conflict');
+  else if (err.code === 'unimplemented') console.warn('Firestore: offline not supported in this browser');
+});
 </script>
 <style>
+/* ═══ DESIGN TOKENS — DARK MODE (DEFAULT) ═══ */
 :root{
-  --void:#050810;--deep:#090d1a;--panel:#0d1424;--card:#111929;
-  --rim:#1e2d47;--rim2:#253550;
-  --glow:#00d4ff;--glow2:#0099cc;--amber:#f59e0b;--amber2:#d97706;
-  --emerald:#00e87a;--emerald2:#00b85f;--rose:#ff3d5a;--violet:#7c5cfc;
-  --text:#e8eef8;--text2:#94a8c4;--text3:#4a6080;
+  --void:#050810;
+  --deep:#090d1a;
+  --panel:#0d1424;
+  --card:#111929;
+  --rim:#1e2d47;
+  --rim2:#253550;
+  --glow:#00d4ff;
+  --glow2:#0099cc;
+  --amber:#f59e0b;
+  --amber2:#d97706;
+  --emerald:#00e87a;
+  --emerald2:#00b85f;
+  --rose:#ff3d5a;
+  --violet:#7c5cfc;
+  --text:#e8eef8;
+  --text2:#94a8c4;
+  --text3:#4a6080;
   --shadow:0 4px 20px rgba(0,0,0,.4);
-  --topbar-bg:rgba(9,13,26,.96);--bbar-bg:rgba(9,13,26,.97);
-  --prev-bg:rgba(0,0,0,.2);--bot-bg:rgba(0,0,0,.15);
-  --inp-focus-bg:#0a101f;--scanline:rgba(0,212,255,.015);
-  --mono:'JetBrains Mono',monospace;--sans:'Space Grotesk',sans-serif;--r:10px;
+  --topbar-bg:rgba(9,13,26,.96);
+  --bbar-bg:rgba(9,13,26,.97);
+  --prev-bg:rgba(0,0,0,.2);
+  --bot-bg:rgba(0,0,0,.15);
+  --inp-focus-bg:#0a101f;
+  --scanline:rgba(0,212,255,.015);
+  --mono:'JetBrains Mono',monospace;
+  --sans:'Space Grotesk',sans-serif;
+  --r:10px;
 }
+
+/* ═══ LIGHT MODE TOKEN OVERRIDES ═══ */
 [data-theme="light"]{
-  --void:#f0f4f8;--deep:#ffffff;--panel:#f8fafc;--card:#ffffff;
-  --rim:#d1dbe8;--rim2:#b8c8dc;--glow:#0284c7;--glow2:#0369a1;
-  --amber:#d97706;--amber2:#b45309;--emerald:#16a34a;--emerald2:#15803d;
-  --rose:#dc2626;--violet:#6d28d9;--text:#0f172a;--text2:#334155;--text3:#64748b;
-  --shadow:0 4px 16px rgba(0,0,0,.08);--topbar-bg:rgba(248,250,252,.97);
-  --bbar-bg:rgba(255,255,255,.97);--prev-bg:rgba(0,0,0,.04);--bot-bg:rgba(0,0,0,.03);
-  --inp-focus-bg:#ffffff;--scanline:transparent;
+  --void:#f0f4f8;
+  --deep:#ffffff;
+  --panel:#f8fafc;
+  --card:#ffffff;
+  --rim:#d1dce8;
+  --rim2:#b8c8dc;
+  --glow:#0284c7;
+  --glow2:#0369a1;
+  --amber:#d97706;
+  --amber2:#b45309;
+  --emerald:#16a34a;
+  --emerald2:#15803d;
+  --rose:#dc2626;
+  --violet:#6d28d9;
+  --text:#0f172a;
+  --text2:#334155;
+  --text3:#64748b;
+  --shadow:0 4px 16px rgba(0,0,0,.08);
+  --topbar-bg:rgba(248,250,252,.97);
+  --bbar-bg:rgba(255,255,255,.97);
+  --prev-bg:rgba(0,0,0,.04);
+  --bot-bg:rgba(0,0,0,.03);
+  --inp-focus-bg:#ffffff;
+  --scanline:transparent;
 }
+
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{min-height:100%;background:var(--void);color:var(--text);font-family:var(--sans);font-size:14px;overflow-x:hidden;transition:background .3s,color .3s}
-body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
-  background:repeating-linear-gradient(0deg,transparent,transparent 2px,var(--scanline) 2px,var(--scanline) 4px)}
+
+/* ═══ SCANLINE — dark only ═══ */
+body::before{
+  content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,var(--scanline) 2px,var(--scanline) 4px);
+  transition:opacity .3s;
+}
+
+/* ═══ THEME TOGGLE BUTTON ═══ */
+.theme-btn{
+  position:relative;width:52px;height:26px;border:none;border-radius:13px;cursor:pointer;
+  background:var(--rim2);transition:background .3s;flex-shrink:0;
+  border:1.5px solid var(--rim2);
+}
+.theme-btn::after{
+  content:'';position:absolute;top:2px;left:2px;
+  width:18px;height:18px;border-radius:50%;
+  background:var(--text3);
+  transition:transform .3s cubic-bezier(.34,1.56,.64,1),background .3s;
+  box-shadow:0 1px 4px rgba(0,0,0,.3);
+}
+[data-theme="light"] .theme-btn{background:#bfdbfe;border-color:#93c5fd}
+[data-theme="light"] .theme-btn::after{transform:translateX(26px);background:#0284c7}
+.theme-icon{font-size:14px;line-height:1;transition:all .3s}
+
+/* ═══ LIGHT MODE — component overrides ═══ */
+[data-theme="light"] .topbar{border-bottom:2px solid var(--glow)}
+[data-theme="light"] .card{box-shadow:0 1px 4px rgba(0,0,0,.07),0 2px 8px rgba(0,0,0,.05)}
+[data-theme="light"] .card:hover{box-shadow:var(--shadow)}
+[data-theme="light"] .card.done{border-color:rgba(22,163,74,.35);background:linear-gradient(180deg,#f0fdf4,#fff)}
+[data-theme="light"] .prev-row{border-bottom:1px solid var(--rim)}
+[data-theme="light"] .meter-inp{background:#fff;border-color:var(--rim2)}
+[data-theme="light"] .meter-inp:focus{background:#fff;border-color:var(--glow)}
+[data-theme="light"] .meter-inp.ok{border-color:var(--emerald);color:var(--emerald)}
+[data-theme="light"] .usage-chip{background:#f1f5f9;border-color:var(--rim)}
+[data-theme="light"] .usage-chip.up{background:#dcfce7;color:var(--emerald);border-color:#86efac}
+[data-theme="light"] .usage-chip.dn{background:#fee2e2;color:var(--rose);border-color:#fca5a5}
+[data-theme="light"] .no-photo{background:#f8fafc;border-color:var(--rim2)}
+[data-theme="light"] .cam-btn.alb{background:#f1f5f9;color:var(--text2);border:1.5px solid var(--rim2)}
+[data-theme="light"] .srch{background:#fff;color:var(--text)}
+[data-theme="light"] .srch::placeholder{color:var(--text3)}
+[data-theme="light"] .fsel{background:#fff;color:var(--text)}
+[data-theme="light"] .dt-inp{background:#fff;color:var(--text)}
+[data-theme="light"] .btn-out{background:#fff;border-color:var(--rim2);color:var(--text2)}
+[data-theme="light"] .edit-btn{background:#fff;color:var(--text3)}
+[data-theme="light"] .modal{background:#fff;border-color:var(--rim);box-shadow:0 -8px 40px rgba(0,0,0,.12)}
+[data-theme="light"] .mi{background:#f8fafc;border-color:var(--rim2);color:var(--text)}
+[data-theme="light"] .sheet-info{background:#f8fafc;border-color:var(--rim)}
+[data-theme="light"] .mtab{background:#f8fafc;border-color:var(--rim2);color:var(--text3)}
+[data-theme="light"] .mtab:hover{border-color:var(--glow);color:var(--glow)}
+[data-theme="light"] .mtab.active{background:var(--glow);color:#fff}
+[data-theme="light"] .mtab.has{background:#dcfce7;border-color:#86efac;color:var(--emerald)}
+[data-theme="light"] .toast{background:#1e293b;color:#e2e8f0}
+[data-theme="light"] .sc{background:#fff}
+[data-theme="light"] .stats{background:var(--rim)}
+[data-theme="light"] .fbar{background:#f8fafc}
+[data-theme="light"] .unit-badge{background:rgba(2,132,199,.1);color:var(--glow);border-color:rgba(2,132,199,.25)}
+[data-theme="light"] .tw-1{background:rgba(109,40,217,.08);color:#6d28d9;border-color:rgba(109,40,217,.2)}
+[data-theme="light"] .tw-2{background:rgba(2,132,199,.08);color:var(--glow);border-color:rgba(2,132,199,.2)}
+[data-theme="light"] .tw-3{background:rgba(217,119,6,.08);color:var(--amber);border-color:rgba(217,119,6,.2)}
+[data-theme="light"] .tw-r{background:rgba(220,38,38,.08);color:var(--rose);border-color:rgba(220,38,38,.2)}
+[data-theme="light"] .ct-tag{background:rgba(217,119,6,.08);color:var(--amber);border-color:rgba(217,119,6,.15)}
+[data-theme="light"] .pfill{box-shadow:none}
+[data-theme="light"] .dot-ok{background:var(--emerald);box-shadow:0 0 6px rgba(22,163,74,.4)}
+[data-theme="light"] .grp-label{color:var(--glow)}
+[data-theme="light"] .mstrip{background:var(--deep)}
+[data-theme="light"] .inp-icon{color:var(--glow)}
+[data-theme="light"] .roll-banner{background:linear-gradient(135deg,rgba(217,119,6,.08),rgba(217,119,6,.04));border-color:rgba(217,119,6,.35)}
+[data-theme="light"] .logo{background:linear-gradient(90deg,var(--glow),var(--violet));-webkit-background-clip:text;background-clip:text}
+[data-theme="light"] .sync-dot{box-shadow:none}
 [data-theme="light"] body::before{display:none}
+/* card border left done */
+[data-theme="light"] .card.done{border-left:3px solid var(--emerald)}
 
-/* ── LOGIN SCREEN ── */
-.login-screen{
-  display:none;position:fixed;inset:0;z-index:1000;
-  background:linear-gradient(135deg,#050810 0%,#0d1a3a 50%,#050810 100%);
-  align-items:center;justify-content:center;flex-direction:column;padding:20px;
-}
-.login-screen.show{display:flex}
-.login-box{
-  background:rgba(13,20,36,.95);border:1px solid var(--rim2);border-radius:16px;
-  padding:36px 28px;width:100%;max-width:380px;
-  box-shadow:0 20px 60px rgba(0,0,0,.5);animation:su .3s ease;
-}
-@keyframes su{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
-.login-logo{text-align:center;margin-bottom:28px}
-.login-logo .bolt{font-size:48px;display:block;margin-bottom:8px}
-.login-logo .name{
-  font-size:18px;font-weight:700;letter-spacing:.5px;
-  background:linear-gradient(90deg,var(--glow),var(--violet));
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
-}
-.login-logo .sub{font-size:11px;color:var(--text3);margin-top:4px;font-family:var(--mono);letter-spacing:.5px}
-.lin{margin-bottom:14px}
-.lin label{font-size:11px;color:var(--text3);font-weight:600;margin-bottom:5px;display:block;letter-spacing:.5px;text-transform:uppercase;font-family:var(--mono)}
-.lin input{
-  width:100%;background:rgba(0,0,0,.3);border:1px solid var(--rim2);border-radius:8px;
-  padding:11px 14px;color:var(--text);font-family:var(--sans);font-size:14px;outline:none;
-  transition:border-color .15s;
-}
-.lin input:focus{border-color:var(--glow);box-shadow:0 0 0 3px rgba(0,212,255,.1)}
-.login-btn{
-  width:100%;margin-top:6px;padding:13px;border-radius:8px;border:none;cursor:pointer;
-  font-family:var(--sans);font-size:15px;font-weight:700;letter-spacing:.3px;
-  background:linear-gradient(135deg,var(--glow),var(--violet));color:#fff;
-  transition:all .15s;display:flex;align-items:center;justify-content:center;gap:8px;
-}
-.login-btn:hover{opacity:.9;transform:translateY(-1px)}
-.login-btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
-.login-err{color:var(--rose);font-size:12px;margin-top:10px;text-align:center;font-family:var(--mono);display:none}
-.login-err.show{display:block}
-.login-forget{text-align:center;margin-top:14px;font-size:12px;color:var(--text3)}
-.login-forget a{color:var(--glow);text-decoration:none;cursor:pointer}
-.login-forget a:hover{text-decoration:underline}
-
-/* ── TOPBAR ── */
+/* ═══ TOPBAR ═══ */
 .topbar{
-  position:sticky;top:0;z-index:200;background:var(--topbar-bg);backdrop-filter:blur(16px);
-  border-bottom:1px solid var(--rim);padding:0 16px;display:flex;align-items:center;gap:10px;
+  position:sticky;top:0;z-index:300;
+  background:var(--topbar-bg);backdrop-filter:blur(16px);
+  border-bottom:1px solid var(--rim);
+  padding:0 16px;display:flex;align-items:center;gap:12px;
   transition:background .3s,border-color .3s;
 }
-.logo-area{padding:10px 0;flex:1}
-.logo{
-  font-size:14px;font-weight:700;letter-spacing:.5px;
+.logo-area{padding:11px 0;flex:1}
+.logo{font-size:15px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
   background:linear-gradient(90deg,var(--glow),var(--violet));
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
-  white-space:nowrap;
-}
-.logo-sub{font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:1px;letter-spacing:.5px}
-.tbr{display:flex;gap:6px;padding:10px 0;align-items:center;flex-shrink:0}
-.user-chip{
-  display:flex;align-items:center;gap:6px;
-  background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.2);
-  border-radius:20px;padding:4px 10px 4px 6px;
-}
-.user-av{
-  width:22px;height:22px;border-radius:50%;
-  background:linear-gradient(135deg,var(--glow),var(--violet));
-  color:#000;font-size:10px;font-weight:700;
-  display:flex;align-items:center;justify-content:center;flex-shrink:0;
-}
-.user-email{font-family:var(--mono);font-size:10px;color:var(--glow);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.sync-dot{width:7px;height:7px;border-radius:50%;background:var(--emerald);box-shadow:0 0 8px var(--emerald);animation:pulse 2s infinite;flex-shrink:0}
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.logo-sub{font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:2px;letter-spacing:.5px}
+.topbar-right{display:flex;gap:6px;padding:11px 0;align-items:center}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:var(--emerald);box-shadow:0 0 8px var(--emerald);animation:pulse 2s infinite}
 .sync-dot.off{background:var(--text3);box-shadow:none;animation:none}
 .sync-dot.syncing{background:var(--amber);box-shadow:0 0 8px var(--amber);animation:pulse .5s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-.sync-lbl{font-size:10px;color:var(--text3);font-family:var(--mono);white-space:nowrap}
-.theme-btn{
-  position:relative;width:44px;height:22px;border:none;border-radius:11px;cursor:pointer;
-  background:var(--rim2);flex-shrink:0;transition:background .3s;
-}
-.theme-btn::after{
-  content:'';position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;
-  background:var(--text3);transition:transform .3s cubic-bezier(.34,1.56,.64,1),background .3s;
-  box-shadow:0 1px 4px rgba(0,0,0,.3);
-}
-[data-theme="light"] .theme-btn{background:#bfdbfe}
-[data-theme="light"] .theme-btn::after{transform:translateX(22px);background:var(--glow)}
-.gear-btn{background:none;border:1px solid var(--rim);border-radius:6px;color:var(--text3);cursor:pointer;padding:4px 7px;font-size:13px;transition:all .12s;flex-shrink:0}
-.gear-btn:hover{border-color:var(--glow);color:var(--glow)}
-.logout-btn{background:none;border:1px solid rgba(255,61,90,.3);border-radius:6px;color:var(--rose);cursor:pointer;padding:4px 8px;font-size:11px;font-family:var(--sans);font-weight:600;transition:all .12s;flex-shrink:0;white-space:nowrap}
-.logout-btn:hover{background:rgba(255,61,90,.1)}
 
-/* ── MONTH STRIP ── */
-.mstrip{background:var(--deep);border-bottom:1px solid var(--rim);padding:8px 14px;display:flex;gap:5px;overflow-x:auto;scrollbar-width:none}
+/* ═══ MONTH STRIP ═══ */
+.mstrip{
+  background:var(--deep);border-bottom:1px solid var(--rim);
+  padding:8px 14px;display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;
+}
 .mstrip::-webkit-scrollbar{display:none}
-.mtab{flex-shrink:0;padding:5px 13px;border-radius:20px;border:1px solid var(--rim2);background:transparent;color:var(--text3);font-family:var(--mono);font-size:11px;font-weight:500;cursor:pointer;transition:all .15s;white-space:nowrap}
+.mtab{
+  flex-shrink:0;padding:5px 13px;border-radius:20px;
+  border:1px solid var(--rim2);background:transparent;
+  color:var(--text3);font-family:var(--mono);font-size:11px;font-weight:500;
+  cursor:pointer;transition:all .15s;white-space:nowrap;
+}
 .mtab:hover{border-color:var(--glow);color:var(--glow)}
 .mtab.active{background:var(--glow);color:#000;border-color:var(--glow);font-weight:700;box-shadow:0 0 12px rgba(0,212,255,.3)}
 .mtab.has{border-color:var(--emerald2);color:var(--emerald)}
 .mtab.has.active{background:var(--glow);color:#000;border-color:var(--glow)}
-[data-theme="light"] .mtab{background:var(--panel);border-color:var(--rim2);color:var(--text3)}
 
-/* ── PROGRESS ── */
+/* ═══ PROGRESS ═══ */
 .pbar{height:2px;background:var(--rim)}
 .pfill{height:100%;background:linear-gradient(90deg,var(--glow),var(--emerald));transition:width .6s ease;box-shadow:0 0 8px rgba(0,212,255,.4)}
-[data-theme="light"] .pfill{box-shadow:none}
 
-/* ── STATS ── */
+/* ═══ STATS ═══ */
 .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--rim);border-bottom:1px solid var(--rim)}
 .sc{background:var(--panel);padding:10px 8px;text-align:center}
 .snum{font-family:var(--mono);font-size:20px;font-weight:700;color:var(--glow);line-height:1.1}
 .slbl{font-size:10px;color:var(--text3);margin-top:2px;letter-spacing:.3px;text-transform:uppercase}
 
-/* ── ROLLOVER ── */
-.roll-banner{margin:10px 12px;border-radius:var(--r);background:linear-gradient(135deg,rgba(245,158,11,.12),rgba(245,158,11,.06));border:1px solid rgba(245,158,11,.4);padding:12px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+/* ═══ ROLLOVER BANNER ═══ */
+.roll-banner{
+  margin:10px 12px;border-radius:var(--r);
+  background:linear-gradient(135deg,rgba(245,158,11,.12),rgba(245,158,11,.06));
+  border:1px solid rgba(245,158,11,.4);
+  padding:12px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+}
 .roll-banner.off{display:none}
 
-/* ── FILTER ── */
-.fbar{padding:10px 12px;background:var(--panel);border-bottom:1px solid var(--rim);display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.srch{flex:1;min-width:140px;background:var(--deep);border:1px solid var(--rim2);border-radius:8px;padding:8px 12px;color:var(--text);font-family:var(--sans);font-size:13px;outline:none;transition:border-color .15s}
+/* ═══ FILTER BAR ═══ */
+.fbar{
+  padding:10px 12px;background:var(--panel);
+  border-bottom:1px solid var(--rim);
+  display:flex;gap:8px;flex-wrap:wrap;align-items:center;
+}
+.srch{
+  flex:1;min-width:140px;
+  background:var(--deep);border:1px solid var(--rim2);border-radius:8px;
+  padding:8px 12px;color:var(--text);font-family:var(--sans);font-size:13px;outline:none;
+  transition:border-color .15s;
+}
 .srch:focus{border-color:var(--glow);box-shadow:0 0 0 2px rgba(0,212,255,.12)}
 .srch::placeholder{color:var(--text3)}
-[data-theme="light"] .srch{background:#fff;color:var(--text)}
-.fsel{background:var(--deep);border:1px solid var(--rim2);border-radius:8px;padding:8px 10px;color:var(--text);font-family:var(--sans);font-size:12px;outline:none;cursor:pointer}
+.fsel{
+  background:var(--deep);border:1px solid var(--rim2);border-radius:8px;
+  padding:8px 10px;color:var(--text);font-family:var(--sans);font-size:12px;
+  outline:none;cursor:pointer;
+}
 .fsel:focus{border-color:var(--glow)}
-[data-theme="light"] .fsel{background:#fff;color:var(--text)}
 .prog-lbl{font-family:var(--mono);font-size:11px;color:var(--text3);margin-left:auto;white-space:nowrap}
 .prog-lbl b{color:var(--emerald);font-weight:600}
 
-/* ── CARDS ── */
+/* ═══ CARDS GRID ═══ */
 .cards{padding:8px 10px 90px;display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:8px}
 @media(max-width:340px){.cards{grid-template-columns:1fr;padding:6px 6px 90px}}
 
-/* ── FLOOR GROUP HEADER ── */
-.grp-hdr{grid-column:1/-1;display:flex;align-items:center;gap:10px;padding:8px 2px 2px}
-.grp-label{font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--glow);white-space:nowrap}
+/* ═══ FLOOR GROUP HEADER ═══ */
+.grp-hdr{
+  grid-column:1/-1;display:flex;align-items:center;gap:10px;
+  padding:8px 2px 2px;
+}
+.grp-label{
+  font-family:var(--mono);font-size:10px;font-weight:600;
+  letter-spacing:1px;text-transform:uppercase;color:var(--glow);
+  white-space:nowrap;
+}
 .grp-line{flex:1;height:1px;background:linear-gradient(90deg,var(--rim2),transparent)}
 
-/* ── CARD ── */
-.card{background:var(--card);border:1px solid var(--rim);border-radius:var(--r);overflow:hidden;transition:border-color .15s,box-shadow .15s;position:relative}
-.card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--rim2),transparent);pointer-events:none}
+/* ═══ CARD ═══ */
+.card{
+  background:var(--card);border:1px solid var(--rim);border-radius:var(--r);
+  overflow:hidden;transition:border-color .15s,box-shadow .15s;
+  position:relative;
+}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,var(--rim2),transparent);pointer-events:none}
 .card:hover{border-color:var(--rim2);box-shadow:0 4px 20px rgba(0,0,0,.4)}
 .card.done{border-color:rgba(0,232,122,.25);border-left:3px solid var(--emerald)}
-[data-theme="light"] .card{box-shadow:0 1px 4px rgba(0,0,0,.07)}
-[data-theme="light"] .card.done{border-color:rgba(22,163,74,.35);background:linear-gradient(180deg,#f0fdf4,#fff)}
+.card.done::before{background:linear-gradient(90deg,transparent,rgba(0,232,122,.2),transparent)}
 
 /* CARD HEAD */
-.ch{padding:10px 12px 8px;border-bottom:1px solid var(--rim);display:flex;align-items:flex-start;gap:8px}
-.chl{flex:1;min-width:0}
-.ur{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:4px}
-.ub{font-family:var(--mono);font-size:11px;font-weight:700;background:rgba(0,212,255,.12);color:var(--glow);border:1px solid rgba(0,212,255,.2);padding:2px 8px;border-radius:4px}
-[data-theme="light"] .ub{background:rgba(2,132,199,.1);color:var(--glow);border-color:rgba(2,132,199,.25)}
-.tw-tag{font-family:var(--mono);font-size:10px;padding:2px 6px;border-radius:4px;font-weight:600;white-space:nowrap}
+.card-head{padding:10px 12px 8px;border-bottom:1px solid var(--rim);display:flex;align-items:flex-start;gap:8px}
+.card-left{flex:1;min-width:0}
+.unit-row{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:4px}
+.unit-badge{
+  font-family:var(--mono);font-size:11px;font-weight:700;
+  background:rgba(0,212,255,.12);color:var(--glow);
+  border:1px solid rgba(0,212,255,.2);padding:2px 8px;border-radius:4px;
+}
+.tower-tag{font-family:var(--mono);font-size:10px;padding:2px 6px;border-radius:4px;font-weight:600;white-space:nowrap}
 .tw-1{background:rgba(124,92,252,.15);color:#a78bfa;border:1px solid rgba(124,92,252,.25)}
 .tw-2{background:rgba(0,212,255,.1);color:var(--glow);border:1px solid rgba(0,212,255,.2)}
 .tw-3{background:rgba(245,158,11,.1);color:var(--amber);border:1px solid rgba(245,158,11,.2)}
-.tw-es{background:rgba(0,232,122,.1);color:var(--emerald);border:1px solid rgba(0,232,122,.2)}
-.tw-b1{background:rgba(124,92,252,.1);color:#c084fc;border:1px solid rgba(124,92,252,.2)}
 .tw-r{background:rgba(255,61,90,.1);color:var(--rose);border:1px solid rgba(255,61,90,.2)}
 .tw-x{background:rgba(148,168,196,.1);color:var(--text2);border:1px solid rgba(148,168,196,.15)}
 .ct-tag{font-family:var(--mono);font-size:10px;padding:2px 5px;border-radius:4px;background:rgba(245,158,11,.1);color:var(--amber);border:1px solid rgba(245,158,11,.15)}
-.ten{font-size:12px;font-weight:500;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:210px}
-.mno{font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:2px}
-.chr{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0}
-.sdot{width:9px;height:9px;border-radius:50%}
+.tenant{font-size:12px;font-weight:500;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:210px}
+.meter-no{font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:2px}
+.card-right{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0}
+.status-dot{width:9px;height:9px;border-radius:50%}
 .dot-ok{background:var(--emerald);box-shadow:0 0 8px var(--emerald)}
 .dot-no{background:var(--rim2)}
-[data-theme="light"] .dot-ok{box-shadow:0 0 6px rgba(22,163,74,.4)}
-.eb{background:none;border:1px solid var(--rim2);border-radius:5px;color:var(--text3);cursor:pointer;font-size:11px;padding:3px 7px;font-family:var(--sans);transition:all .12s}
-.eb:hover{border-color:var(--glow);color:var(--glow)}
+.edit-btn{background:none;border:1px solid var(--rim2);border-radius:5px;color:var(--text3);cursor:pointer;font-size:11px;padding:3px 7px;font-family:var(--sans);transition:all .12s}
+.edit-btn:hover{border-color:var(--glow);color:var(--glow)}
 
 /* PREV ROW */
-.pr{padding:5px 12px;display:flex;align-items:center;background:var(--prev-bg);border-bottom:1px solid var(--rim);transition:background .3s}
-.prl{font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.3px}
-.prv{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--text2);margin-left:auto}
+.prev-row{padding:5px 12px;display:flex;align-items:center;background:var(--prev-bg);border-bottom:1px solid var(--rim);transition:background .3s}
+.prev-lbl{font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.3px}
+.prev-val{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--text2);margin-left:auto}
 
 /* INPUT AREA */
-.ia{padding:10px 12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.iw{flex:1;min-width:130px;position:relative}
-.ii{position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none;color:var(--glow)}
-.mi{
-  width:100%;background:var(--deep);border:1.5px solid var(--rim2);border-radius:8px;
-  padding:10px 10px 10px 32px;color:var(--text);font-family:var(--mono);font-size:15px;font-weight:600;
-  outline:none;transition:border-color .15s,box-shadow .15s;-moz-appearance:textfield;
+.inp-area{padding:10px 12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.inp-wrap{flex:1;min-width:130px;position:relative}
+.inp-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none;color:var(--glow)}
+.meter-inp{
+  width:100%;background:var(--deep);
+  border:1.5px solid var(--rim2);border-radius:8px;
+  padding:10px 10px 10px 32px;
+  color:var(--text);font-family:var(--mono);font-size:15px;font-weight:600;
+  outline:none;transition:border-color .15s,box-shadow .15s;
+  -moz-appearance:textfield;
 }
-.mi::-webkit-outer-spin-button,.mi::-webkit-inner-spin-button{-webkit-appearance:none}
-.mi::placeholder{color:var(--text3);font-weight:400;font-size:13px}
-.mi:focus{border-color:var(--glow);box-shadow:0 0 0 3px rgba(0,212,255,.1);background:var(--inp-focus-bg)}
-.mi.ok{border-color:var(--emerald);color:var(--emerald)}
-.mi.ok:focus{box-shadow:0 0 0 3px rgba(0,232,122,.1)}
-.mi.err{border-color:var(--rose);animation:shk .25s}
+.meter-inp::-webkit-outer-spin-button,.meter-inp::-webkit-inner-spin-button{-webkit-appearance:none}
+.meter-inp::placeholder{color:var(--text3);font-weight:400;font-size:13px}
+.meter-inp:focus{border-color:var(--glow);box-shadow:0 0 0 3px rgba(0,212,255,.1);background:var(--inp-focus-bg)}
+.meter-inp.ok{border-color:var(--emerald);color:var(--emerald)}
+.meter-inp.ok:focus{box-shadow:0 0 0 3px rgba(0,232,122,.1)}
+.meter-inp.err{border-color:var(--rose);animation:shk .25s}
 @keyframes shk{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
-[data-theme="light"] .mi{background:#fff;border-color:var(--rim2)}
-.uc{padding:6px 10px;border-radius:6px;font-family:var(--mono);font-size:12px;font-weight:700;white-space:nowrap;background:var(--deep);color:var(--text3);border:1px solid var(--rim)}
-.uc.up{background:rgba(0,232,122,.1);color:var(--emerald);border-color:rgba(0,232,122,.2)}
-.uc.dn{background:rgba(255,61,90,.1);color:var(--rose);border-color:rgba(255,61,90,.2)}
-[data-theme="light"] .uc{background:var(--s2);border-color:var(--rim)}
+.usage-chip{
+  padding:6px 10px;border-radius:6px;font-family:var(--mono);font-size:12px;font-weight:700;
+  white-space:nowrap;background:var(--deep);color:var(--text3);border:1px solid var(--rim);
+}
+.usage-chip.up{background:rgba(0,232,122,.1);color:var(--emerald);border-color:rgba(0,232,122,.2)}
+.usage-chip.dn{background:rgba(255,61,90,.1);color:var(--rose);border-color:rgba(255,61,90,.2)}
 
-/* IMAGE */
-.imgs{padding:0 12px 10px}
-.ipbig{width:100%;border-radius:8px;overflow:hidden;margin-bottom:6px;background:var(--deep);border:1px solid var(--rim);cursor:pointer;position:relative;transition:opacity .15s}
-.ipbig:hover{opacity:.9}
-.ipbig img{width:100%;max-height:190px;object-fit:contain;display:block;border-radius:7px}
-.idel{position:absolute;top:6px;right:6px;background:rgba(255,61,90,.85);color:#fff;border:none;border-radius:5px;padding:4px 8px;font-size:11px;cursor:pointer;font-family:var(--sans);font-weight:600;backdrop-filter:blur(4px);transition:background .12s;z-index:5}
-.idel:hover{background:var(--rose)}
-.nophoto{display:flex;flex-direction:column;align-items:center;gap:4px;padding:14px;color:var(--text3);background:var(--deep);border:1px dashed var(--rim2);border-radius:8px;margin-bottom:6px;text-align:center}
-.nophoto .ni{font-size:24px;opacity:.5}
-.nophoto .nt{font-size:11px;letter-spacing:.3px}
-[data-theme="light"] .nophoto{background:var(--panel);border-color:var(--rim2)}
-.cbtns{display:grid;grid-template-columns:1fr 1fr;gap:6px}
-.cb{display:flex;align-items:center;justify-content:center;gap:5px;border-radius:7px;padding:8px 10px;cursor:pointer;font-size:12px;font-weight:600;font-family:var(--sans);border:none;transition:all .15s;position:relative;overflow:hidden}
-.cb input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
-.cb.cam{background:var(--glow);color:#000}
-.cb.cam:hover{background:var(--glow2);box-shadow:0 0 12px rgba(0,212,255,.3)}
-.cb.alb{background:var(--deep);color:var(--text2);border:1px solid var(--rim2)}
-.cb.alb:hover{border-color:var(--glow);color:var(--glow)}
-[data-theme="light"] .cb.alb{background:#f8fafc;border-color:var(--rim2)}
-.iact{display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap}
-.vfb{background:none;border:1px solid rgba(0,232,122,.3);border-radius:6px;color:var(--emerald);font-size:11px;font-weight:600;padding:4px 10px;cursor:pointer;font-family:var(--sans);transition:all .12s}
-.vfb:hover{background:rgba(0,232,122,.1)}
+/* ═══ IMAGE SECTION ═══ */
+.img-section{padding:0 12px 10px}
+.img-preview-big{
+  width:100%;border-radius:8px;overflow:hidden;margin-bottom:6px;
+  background:var(--deep);border:1px solid var(--rim);cursor:pointer;
+  position:relative;transition:opacity .15s;
+}
+.img-preview-big:hover{opacity:.9}
+.img-preview-big img{width:100%;max-height:190px;object-fit:contain;display:block;border-radius:7px}
+.img-delete-btn{
+  position:absolute;top:6px;right:6px;
+  background:rgba(255,61,90,.85);color:#fff;border:none;border-radius:5px;
+  padding:4px 8px;font-size:11px;cursor:pointer;font-family:var(--sans);font-weight:600;
+  backdrop-filter:blur(4px);transition:background .12s;z-index:5;
+}
+.img-delete-btn:hover{background:var(--rose)}
+.no-photo{
+  display:flex;flex-direction:column;align-items:center;gap:4px;padding:14px;
+  color:var(--text3);background:var(--deep);border:1px dashed var(--rim2);
+  border-radius:8px;margin-bottom:6px;text-align:center;
+}
+.no-photo .ni{font-size:24px;opacity:.5}
+.no-photo .nt{font-size:11px;letter-spacing:.3px}
+.cam-btns{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.cam-btn{
+  display:flex;align-items:center;justify-content:center;gap:5px;
+  border-radius:7px;padding:8px 10px;cursor:pointer;font-size:12px;font-weight:600;
+  font-family:var(--sans);border:none;transition:all .15s;position:relative;overflow:hidden;
+}
+.cam-btn input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.cam-btn.cam{background:var(--glow);color:#000}
+.cam-btn.cam:hover{background:var(--glow2);box-shadow:0 0 12px rgba(0,212,255,.3)}
+.cam-btn.alb{background:var(--deep);color:var(--text2);border:1px solid var(--rim2)}
+.cam-btn.alb:hover{border-color:var(--glow);color:var(--glow)}
+.img-action-row{display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap}
+.view-full{background:none;border:1px solid rgba(0,232,122,.3);border-radius:6px;color:var(--emerald);font-size:11px;font-weight:600;padding:4px 10px;cursor:pointer;font-family:var(--sans);transition:all .12s}
+.view-full:hover{background:rgba(0,232,122,.1)}
 
 /* BOTTOM ROW */
-.br{padding:8px 12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;border-top:1px solid var(--rim);background:var(--bot-bg);transition:background .3s}
-.dti{background:var(--deep);border:1px solid var(--rim2);border-radius:6px;padding:6px 8px;color:var(--text);font-family:var(--mono);font-size:11px;outline:none;flex:1;min-width:145px;transition:border-color .15s}
-.dti:focus{border-color:var(--glow)}
-[data-theme="light"] .dti{background:#fff;color:var(--text)}
-.loc{font-size:10px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;max-width:140px}
+.bot-row{
+  padding:8px 12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  border-top:1px solid var(--rim);background:var(--bot-bg);transition:background .3s;
+}
+.dt-inp{
+  background:var(--deep);border:1px solid var(--rim2);border-radius:6px;
+  padding:6px 8px;color:var(--text);font-family:var(--mono);font-size:11px;
+  outline:none;flex:1;min-width:145px;transition:border-color .15s;
+}
+.dt-inp:focus{border-color:var(--glow)}
+.loc-txt{font-size:10px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;max-width:140px}
 
-/* BUTTONS */
+/* ═══ BUTTONS ═══ */
 .btn{padding:7px 13px;border-radius:7px;border:none;cursor:pointer;font-family:var(--sans);font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:5px;transition:all .15s;white-space:nowrap}
 .btn-glow{background:var(--glow);color:#000;box-shadow:0 0 12px rgba(0,212,255,.25)}
 .btn-glow:hover{background:var(--glow2)}
 .btn-grn{background:var(--emerald);color:#000}
-.btn-amber{background:var(--amber);color:#000}
+.btn-grn:hover{background:var(--emerald2)}
 .btn-out{background:transparent;border:1px solid var(--rim2);color:var(--text2)}
 .btn-out:hover{border-color:var(--glow);color:var(--glow)}
 .btn-sm{padding:5px 10px;font-size:11px}
-[data-theme="light"] .btn-out{background:#fff;border-color:var(--rim2)}
+.btn-danger{background:transparent;border:1px solid rgba(255,61,90,.4);color:var(--rose)}
+.btn-danger:hover{background:rgba(255,61,90,.1)}
+.btn-amber{background:var(--amber);color:#000}
 
-/* BOTTOM BAR */
-.bbar{position:fixed;bottom:0;left:0;right:0;z-index:200;background:var(--bbar-bg);backdrop-filter:blur(16px);border-top:1px solid var(--rim);padding:8px 12px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;transition:background .3s,border-color .3s}
+/* ═══ BOTTOM BAR ═══ */
+.bbar{
+  position:fixed;bottom:0;left:0;right:0;z-index:200;
+  background:var(--bbar-bg);backdrop-filter:blur(16px);
+  border-top:1px solid var(--rim);
+  padding:8px 12px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;
+  transition:background .3s,border-color .3s;
+}
 .bbar-lbl{font-size:10px;color:var(--text3);font-family:var(--mono);letter-spacing:.3px}
 
-/* MODAL */
+/* ═══ MODAL ═══ */
 .ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;align-items:flex-end;justify-content:center;backdrop-filter:blur(4px)}
 .ov.open{display:flex}
 @media(min-width:580px){.ov{align-items:center;padding:20px}}
-.modal{background:var(--panel);border:1px solid var(--rim2);border-radius:14px 14px 0 0;padding:20px;width:100%;max-height:90vh;overflow-y:auto;animation:slideUp .18s ease;box-shadow:0 -8px 40px rgba(0,0,0,.5)}
+.modal{
+  background:var(--panel);border:1px solid var(--rim2);
+  border-radius:14px 14px 0 0;padding:20px;width:100%;
+  max-height:90vh;overflow-y:auto;animation:slideUp .18s ease;
+  box-shadow:0 -8px 40px rgba(0,0,0,.5);
+}
 @media(min-width:580px){.modal{border-radius:12px;max-width:480px}}
 @keyframes slideUp{from{transform:translateY(16px);opacity:0}to{transform:translateY(0);opacity:1}}
-[data-theme="light"] .modal{background:#fff;border-color:var(--rim)}
-.mh{width:36px;height:3px;background:var(--rim2);border-radius:2px;margin:0 auto 16px}
-.mt{font-size:16px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px;color:var(--text)}
+.mhandle{width:36px;height:3px;background:var(--rim2);border-radius:2px;margin:0 auto 16px}
+.mtitle{font-size:16px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px;color:var(--text)}
 .ml{font-size:10px;color:var(--text3);font-weight:600;margin-bottom:4px;display:block;letter-spacing:.5px;text-transform:uppercase;font-family:var(--mono)}
-.minput{width:100%;background:var(--deep);border:1px solid var(--rim2);border-radius:7px;padding:9px 12px;color:var(--text);font-family:var(--sans);font-size:13px;outline:none;transition:border-color .15s}
-.minput:focus{border-color:var(--glow)}
-[data-theme="light"] .minput{background:var(--panel);border-color:var(--rim2);color:var(--text)}
-.mg{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
-.mr{margin-bottom:8px}
-.mf{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+.mi{width:100%;background:var(--deep);border:1px solid var(--rim2);border-radius:7px;padding:9px 12px;color:var(--text);font-family:var(--sans);font-size:13px;outline:none;transition:border-color .15s}
+.mi:focus{border-color:var(--glow)}
+.mi-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+.mi-row{margin-bottom:8px}
+.mi-foot{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
 
-/* IMAGE VIEWER */
-.imgov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.93);z-index:600;align-items:center;justify-content:center}
-.imgov.open{display:flex}
+/* ═══ GOOGLE SHEET SETTINGS MODAL ═══ */
+.sheet-info{background:var(--deep);border:1px solid var(--rim);border-radius:7px;padding:10px;margin-top:8px;font-size:11px;color:var(--text3);line-height:1.6;font-family:var(--mono)}
+.sheet-info a{color:var(--glow);text-decoration:none}
 
-/* SETTINGS */
-.sheet-info{background:var(--deep);border:1px solid var(--rim);border-radius:7px;padding:10px;margin-top:8px;font-size:11px;color:var(--text3);line-height:1.8;font-family:var(--mono)}
+/* ═══ IMAGE VIEWER ═══ */
+.img-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.93);z-index:600;align-items:center;justify-content:center}
+.img-ov.open{display:flex}
 
-/* TOAST */
-.toast{position:fixed;bottom:68px;left:50%;transform:translateX(-50%);z-index:9999;background:var(--panel);border:1px solid var(--rim2);border-radius:8px;padding:9px 16px;font-size:12px;white-space:nowrap;color:var(--text);display:none;box-shadow:0 4px 20px rgba(0,0,0,.5);font-family:var(--mono)}
+/* ═══ TOAST ═══ */
+.toast{
+  position:fixed;bottom:68px;left:50%;transform:translateX(-50%);z-index:9999;
+  background:var(--panel);border:1px solid var(--rim2);border-radius:8px;
+  padding:9px 16px;font-size:12px;white-space:nowrap;color:var(--text);
+  display:none;box-shadow:0 4px 20px rgba(0,0,0,.5);font-family:var(--mono);
+}
 .toast.show{display:block;animation:fdu .2s ease}
 @keyframes fdu{from{opacity:0;transform:translateX(-50%) translateY(8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
 
-/* MAIN APP */
-#app{display:none}
-#app.show{display:block}
+/* ═══ SETTINGS GEAR ═══ */
+.gear-btn{background:none;border:1px solid var(--rim);border-radius:6px;color:var(--text3);cursor:pointer;padding:5px 8px;font-size:14px;transition:all .12s}
+.gear-btn:hover{border-color:var(--glow);color:var(--glow)}
 </style>
 </head>
 <body>
 
-<!-- ═══ LOGIN SCREEN ═══ -->
-<div class="login-screen" id="loginScreen">
-  <div class="login-box">
-    <div class="login-logo">
-      <span class="bolt">⚡</span>
-      <div class="name">ELECTRICITY METER RECORDER</div>
-      <div class="sub">SIGN IN TO CONTINUE</div>
-    </div>
-    <div class="lin">
-      <label>Email</label>
-      <input type="email" id="loginEmail" placeholder="your@email.com" autocomplete="email">
-    </div>
-    <div class="lin">
-      <label>Password</label>
-      <input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password">
-    </div>
-    <button class="login-btn" id="loginBtn" onclick="doLogin()">
-      <span id="loginBtnTxt">🔑 Sign In</span>
-    </button>
-    <div class="login-err" id="loginErr"></div>
-    <div class="login-forget">
-      <a onclick="doReset()">ลืมรหัสผ่าน? (Reset via Email)</a>
-    </div>
-  </div>
-</div>
-
-<!-- ═══ MAIN APP ═══ -->
-<div id="app">
-
+<!-- TOP BAR -->
 <div class="topbar">
   <div class="logo-area">
-    <div class="logo">⚡ ELECTRICITY METER RECORDER</div>
+    <div class="logo">⚡ TOWER METER</div>
     <div class="logo-sub" id="logoSub">LOADING...</div>
   </div>
-  <div class="tbr">
-    <div class="sync-dot off" id="syncDot"></div>
-    <span class="sync-lbl" id="syncLbl">--</span>
-    <div class="user-chip" id="userChip" style="display:none">
-      <div class="user-av" id="userAv">?</div>
-      <span class="user-email" id="userEmail"></span>
-    </div>
+  <div class="topbar-right">
+    <div class="sync-dot off" id="syncDot" title="สถานะ sync"></div>
+    <span style="font-size:10px;color:var(--text3);font-family:var(--mono)" id="syncLbl">OFFLINE</span>
+    <!-- THEME TOGGLE -->
     <span class="theme-icon" id="themeIcon">🌙</span>
-    <button class="theme-btn" id="themeBtn" onclick="toggleTheme()" aria-label="Toggle theme"></button>
-    <button class="gear-btn" onclick="openSettings()">⚙️</button>
-    <button class="logout-btn" onclick="doLogout()">Sign Out</button>
-    <button class="btn btn-glow btn-sm" onclick="openAdd()">＋</button>
+    <button class="theme-btn" id="themeBtn" onclick="toggleTheme()" title="สลับโหมดสว่าง/มืด" aria-label="Toggle theme"></button>
+    <button class="gear-btn" onclick="openSettings()" title="ตั้งค่า Google Sheet">⚙️</button>
+    <button class="btn btn-glow btn-sm" onclick="openAdd()">＋ ADD</button>
   </div>
 </div>
 
+<!-- MONTH STRIP -->
 <div class="mstrip" id="mstrip"></div>
 <div class="pbar"><div class="pfill" id="pfill" style="width:0%"></div></div>
 
+<!-- STATS -->
 <div class="stats">
   <div class="sc"><div class="snum" id="sA">0</div><div class="slbl">TOTAL</div></div>
   <div class="sc"><div class="snum" id="sD" style="color:var(--emerald)">0</div><div class="slbl">DONE</div></div>
   <div class="sc"><div class="snum" id="sP" style="color:var(--rose)">0</div><div class="slbl">PENDING</div></div>
 </div>
 
+<!-- ROLLOVER -->
 <div class="roll-banner off" id="rollB">
   <span style="font-size:20px">🔄</span>
   <div style="flex:1">
@@ -397,17 +485,15 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   <button class="btn btn-amber btn-sm" onclick="doRollover()">ROLLOVER →</button>
 </div>
 
+<!-- FILTER -->
 <div class="fbar">
   <input class="srch" id="srch" placeholder="🔍  Unit / ชื่อผู้เช่า / มิเตอร์ / ชั้น..." oninput="render()">
   <select class="fsel" id="fTw" onchange="render()">
-    <option value="">ทุก Zone/Tower</option>
-    <option value="ES">Zone ES</option>
-    <option value="B1">Zone B1</option>
-    <option value="B4">Zone B4</option>
-    <option value="P10">Zone P10</option>
-    <option value="T1">Tower 1</option>
-    <option value="T2">Tower 2</option>
-    <option value="T3">Tower 3</option>
+    <option value="">ทุก Tower</option>
+    <option value="1">Tower 1</option>
+    <option value="2">Tower 2</option>
+    <option value="3">Tower 3</option>
+    <option value="R3">R3</option>
   </select>
   <select class="fsel" id="fSt" onchange="render()">
     <option value="">ทุกสถานะ</option>
@@ -417,86 +503,114 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   <div class="prog-lbl">DONE <b id="progLbl">0/0</b></div>
 </div>
 
+<!-- CARDS -->
 <div class="cards" id="cards"></div>
 <div style="text-align:center;padding:50px;color:var(--text3);display:none;font-family:var(--mono)" id="emp">// NO RESULTS //</div>
 
+<!-- BOTTOM BAR -->
 <div class="bbar">
-  <span class="bbar-lbl" id="bbarUser">AUTO-SAVE</span>
+  <span class="bbar-lbl">AUTO-SAVE</span>
   <button class="btn btn-out btn-sm" onclick="expCSV()">📥 CSV</button>
-  <button class="btn btn-out btn-sm" onclick="pushToSheet()">🔄 SYNC</button>
+  <button class="btn btn-out btn-sm" onclick="pushToSheet()">☁️ SYNC NOW</button>
   <button class="btn btn-out btn-sm" onclick="copyS()">📋 SHEETS</button>
+  <button class="btn btn-danger btn-sm" onclick="clrMonth()">🗑 CLEAR</button>
 </div>
 
-<!-- EDIT MODAL -->
+<!-- ════ EDIT MODAL ════ -->
 <div class="ov" id="editOv">
   <div class="modal">
-    <div class="mh"></div>
-    <div class="mt"><span id="eIc">➕</span><span id="eTi">ADD METER</span></div>
-    <div class="mg">
-      <div class="mr"><label class="ml">Unit *</label><input class="minput" id="eU" placeholder="4001"></div>
-      <div class="mr"><label class="ml">Zone/Tower</label>
-        <select class="minput" id="eTw">
-          <option value="ES">ES</option><option value="B1">B1</option><option value="B4">B4</option>
-          <option value="P10">P10</option><option value="T1">T1</option>
-          <option value="T2">T2</option><option value="T3">T3</option>
+    <div class="mhandle"></div>
+    <div class="mtitle"><span id="eIc">➕</span> <span id="eTi">ADD METER</span></div>
+    <div class="mi-grid">
+      <div class="mi-row"><label class="ml">Unit *</label><input class="mi" id="eU" placeholder="4001"></div>
+      <div class="mi-row"><label class="ml">Tower</label>
+        <select class="mi" id="eTw">
+          <option value="1">Tower 1</option><option value="2">Tower 2</option>
+          <option value="3">Tower 3</option><option value="R3">R3</option>
+          <option value="A">A</option><option value="B">B</option>
+          <option value="C">C</option><option value="D">D</option>
         </select>
       </div>
     </div>
-    <div class="mr"><label class="ml">ชื่อผู้เช่า *</label><input class="minput" id="eT"></div>
-    <div class="mg">
-      <div class="mr"><label class="ml">เลขมิเตอร์ *</label><input class="minput" id="eM"></div>
-      <div class="mr"><label class="ml">CT</label><input class="minput" id="eC" type="number" value="1" min="1"></div>
+    <div class="mi-row"><label class="ml">ชื่อผู้เช่า *</label><input class="mi" id="eT"></div>
+    <div class="mi-grid">
+      <div class="mi-row"><label class="ml">เลขมิเตอร์ *</label><input class="mi" id="eM"></div>
+      <div class="mi-row"><label class="ml">CT</label><input class="mi" id="eC" type="number" value="1" min="1"></div>
     </div>
-    <div class="mr"><label class="ml">ค่า Mar 2026 (ฐาน)</label><input class="minput" id="eB" type="number" step="0.0001"></div>
-    <div class="mr"><label class="ml">สถานที่</label><input class="minput" id="eL"></div>
-    <div class="mf">
+    <div class="mi-row"><label class="ml">ค่า Mar 2026 (ฐาน)</label><input class="mi" id="eB" type="number" step="0.0001"></div>
+    <div class="mi-row"><label class="ml">สถานที่</label><input class="mi" id="eL"></div>
+    <div class="mi-foot">
       <button class="btn btn-out" onclick="closeEdit()">CANCEL</button>
       <button class="btn btn-glow" onclick="saveEdit()">SAVE</button>
     </div>
   </div>
 </div>
 
-<!-- SETTINGS MODAL -->
+<!-- ════ SETTINGS MODAL ════ -->
 <div class="ov" id="settingsOv">
   <div class="modal">
-    <div class="mh"></div>
-    <div class="mt">⚙️ Settings</div>
+    <div class="mhandle"></div>
+    <div class="mtitle">⚙️ Settings — Firebase</div>
+
     <div style="background:rgba(0,232,122,.08);border:1px solid rgba(0,232,122,.25);border-radius:8px;padding:14px;margin-bottom:14px">
-      <div style="font-weight:700;color:var(--emerald);margin-bottom:6px;font-size:13px">🔥 Cloud Firestore</div>
+      <div style="font-weight:700;color:var(--emerald);margin-bottom:6px;font-size:13px">🔥 Cloud Firestore (Default Database)</div>
       <div style="font-family:var(--mono);font-size:11px;color:var(--text2);line-height:1.8">
         Project: <span style="color:var(--glow)">electricity-meter-record-3fca8</span><br>
         Location: <span style="color:var(--glow)">asia-southeast1</span><br>
+        Plan: <span style="color:var(--amber)">Blaze (Pay-as-you-go)</span><br>
         Status: <span id="fbStatusInModal" style="color:var(--emerald)">กำลังเชื่อมต่อ...</span>
       </div>
     </div>
-    <div class="mr">
-      <a href="https://console.firebase.google.com/project/electricity-meter-record-3fca8/firestore" target="_blank"
-        style="display:inline-flex;align-items:center;gap:6px;background:var(--glow);color:#000;padding:7px 14px;border-radius:7px;text-decoration:none;font-size:12px;font-weight:700;font-family:var(--sans)">
+
+    <div class="mi-row">
+      <label class="ml">ดูข้อมูลใน Firestore Console</label>
+      <a href="https://console.firebase.google.com/project/electricity-meter-record-3fca8/firestore/databases/-default-/data" target="_blank"
+        style="display:inline-flex;align-items:center;gap:6px;background:var(--glow);color:#000;padding:7px 14px;border-radius:7px;text-decoration:none;font-size:12px;font-weight:700;font-family:var(--sans);margin-top:4px">
         🔗 เปิด Firestore Console
       </a>
     </div>
+
     <div style="border-top:1px solid var(--rim);padding-top:12px;margin-top:12px">
-      <label class="ml">Firestore Rules</label>
-      <div class="sheet-info">
-        rules_version = '2';<br>
-        service cloud.firestore {'{'}match /databases/{'{'}database{'}'}/documents {'{'}match /{'{'}document=**{'}'} {'{'}allow read, write: if true;{'}'}{'}'}{'}'}
+      <label class="ml">Firestore Security Rules — ตั้งใน Console</label>
+      <div class="sheet-info" style="font-size:11px;line-height:1.9">
+        Firestore → Rules → วาง แล้ว Publish:<br>
+        <code style="color:var(--emerald);display:block;margin-top:4px">
+rules_version = '2';<br>
+service cloud.firestore {<br>
+&nbsp;&nbsp;match /databases/{database}/documents {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;match /{document=**} {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;allow read, write: if true;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;}<br>
+&nbsp;&nbsp;}<br>
+}
+        </code>
+        <span style="color:var(--amber);display:block;margin-top:6px">⚠️ สำหรับทีมภายใน — เหมาะสมแล้ว</span>
       </div>
     </div>
-    <div style="border-top:1px solid var(--rim);padding-top:12px;margin-top:12px">
-      <label class="ml">Manage Users — Firebase Console</label>
-      <a href="https://console.firebase.google.com/project/electricity-meter-record-3fca8/authentication/users" target="_blank"
-        style="display:inline-flex;align-items:center;gap:6px;background:var(--violet);color:#fff;padding:7px 14px;border-radius:7px;text-decoration:none;font-size:12px;font-weight:700;font-family:var(--sans);margin-top:6px">
-        👤 จัดการผู้ใช้
-      </a>
-    </div>
-    <div class="mf">
+
+    <div class="mi-foot">
       <button class="btn btn-out" onclick="closeSettings()">CLOSE</button>
     </div>
   </div>
 </div>
 
+<!-- ════ APPS SCRIPT VIEWER ════ -->
+<div class="ov" id="scriptOv">
+  <div class="modal" style="max-width:600px">
+    <div class="mhandle"></div>
+    <div class="mtitle">📄 Google Apps Script</div>
+    <div style="background:var(--void);border:1px solid var(--rim);border-radius:8px;padding:12px;overflow-x:auto;margin-bottom:12px">
+      <pre style="font-family:var(--mono);font-size:10px;color:var(--text2);line-height:1.6;white-space:pre-wrap" id="scriptText"></pre>
+    </div>
+    <div class="mi-foot">
+      <button class="btn btn-out" onclick="document.getElementById('scriptOv').classList.remove('open')">CLOSE</button>
+      <button class="btn btn-glow" onclick="copyScript()">📋 COPY</button>
+    </div>
+  </div>
+</div>
+
 <!-- IMAGE VIEWER -->
-<div class="imgov" id="imgOv" onclick="this.classList.remove('open')">
+<div class="img-ov" id="imgOv" onclick="this.classList.remove('open')">
   <div style="position:relative;max-width:96vw;max-height:94vh" onclick="event.stopPropagation()">
     <img id="imgEl" style="max-width:96vw;max-height:90vh;border-radius:10px;display:block;object-fit:contain">
     <button onclick="document.getElementById('imgOv').classList.remove('open')"
@@ -506,733 +620,194 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 
 <div class="toast" id="toast"></div>
 
-</div><!-- end #app -->
-
 <script>
-<script>
+// ══════════════════════════════════════════════
+// 116 METERS — DATASET 2 (Tower 1,2,3 / Floor 38-46 + R3)
+// ══════════════════════════════════════════════
 const RAW=[
-  {u:"M01",t:"ACACIA I.T. SERVICES (THAILAND) Co., Ltd.",tw:"ES",fl:"M",m:"3983480108",ct:1,b:26607.4,loc:"ชาร์ปไฟ ชั้น M (ในพื้นที่ของ M Spaces)"},
-  {u:"M04",t:"OCC PUBLIC COMPANY LIMITED / Black Amber",tw:"ES",fl:"M",m:"A221-8010211-IS",ct:1,b:3489.0,loc:"ชาร์ชั้น M (ในพื้นที่ของ M Spaces)"},
-  {u:"M05",t:"GAGA (Inter Tel Leader Co.,Ltd.)",tw:"ES",fl:"M",m:"4268390070",ct:1,b:57498.97,loc:"ในร้าน"},
-  {u:"M06/1",t:"SODA NAMCHA COMPANY LIMITED (White Story)",tw:"ES",fl:"M",m:"4268390067",ct:1,b:28241.25,loc:"ในร้าน Rise"},
-  {u:"M06/2",t:"Rise Up Business Co.,Ltd.",tw:"ES",fl:"M",m:"4268390069",ct:1,b:46311.43,loc:"ในร้าน rise"},
-  {u:"M07",t:"ABP Cafe (Thailand) Co.,Ltd. / Au Bon Pain",tw:"ES",fl:"M",m:"3982320065",ct:1,b:276557.0,loc:"ชาร์ปชั้น M (ในพื้นที่ของ M Spaces)"},
-  {u:"M (M1 Spaces)",t:"Meter M1 Spaces",tw:"ES",fl:"M",m:"61650",ct:1,b:4.3002,loc:"ชาร์ชั้น M (ในพื้นที่ของ M Spaces)"},
-  {u:"M02-M03-1 (CP MZZ01)",t:"AWC Lifestyle Commercial Property Co., Ltd. (Loung 195)",tw:"ES",fl:"M2",m:"4263320197",ct:1,b:575750.6,loc:"ห้อง AHU ชั้น M2"},
-  {u:"M02-M03-10",t:"Bangkok Sathorn Centre Company Limited",tw:"ES",fl:"M2",m:"4263320173",ct:1,b:939503.2,loc:"ห้อง AHU ชั้น M2"},
-  {u:"M02-M03-11",t:"AWC Lifestyle Commercial Property Co., Ltd. (Loung 195)",tw:"ES",fl:"M2",m:"4261040313",ct:1,b:101795.5,loc:"ห้อง AHU ชั้น M2"},
-  {u:"M02-M03-12",t:"Bangkok Sathorn Centre Company Limited",tw:"ES",fl:"M2",m:"4263320176",ct:1,b:511387.6,loc:"ห้อง AHU ชั้น M2"},
-  {u:"M02-M03-2(CP MZZ02)",t:"Bangkok Sathorn Centre Company Limited",tw:"ES",fl:"M2",m:"4264390019",ct:1,b:236433.0,loc:"ห้อง AHU ชั้น M2"},
-  {u:"M02-M03-3(CP MZZ03)",t:"Bangkok Sathorn Centre Company Limited",tw:"ES",fl:"M2",m:"4263320212",ct:1,b:242671.5,loc:"ห้อง AHU ชั้น M2"},
-  {u:"M02-M03-4(CP MZZK)",t:"AWC Lifestyle Commercial Property Co., Ltd. (Loung 195)",tw:"ES",fl:"M2",m:"4263320164",ct:1,b:144250.5,loc:"ห้อง AHU ชั้น M2"},
-  {u:"M02-M03-5(AV)",t:"AWC Lifestyle Commercial Property Co., Ltd. (Loung 195)",tw:"ES",fl:"M2",m:"4263320209",ct:1,b:1210.88,loc:"ห้อง AHU ชั้น M2"},
-  {u:"M02-M03-6(AV)",t:"AWC Lifestyle Commercial Property Co., Ltd. (Loung 195)",tw:"ES",fl:"M2",m:"4263320179",ct:1,b:613.06,loc:"ห้อง AHU ชั้น M2"},
-  {u:"M02-M03-7(ECP MZZ01)",t:"AWC Lifestyle Commercial Property Co., Ltd. (Loung 195)",tw:"ES",fl:"M2",m:"4263320192",ct:1,b:57320.07,loc:"ห้อง AHU ชั้น M2"},
-  {u:"M02-M03-8(ECP MZZ02)",t:"Bangkok Sathorn Centre Company Limited",tw:"ES",fl:"M2",m:"4264240111",ct:1,b:67534.17,loc:"ห้อง AHU ชั้น M2"},
-  {u:"M02-M03-9(ECP MZZOK)",t:"AWC Lifestyle Commercial Property Co., Ltd. (Loung 195)",tw:"ES",fl:"M2",m:"4263320200",ct:1,b:295671.0,loc:"ห้อง AHU ชั้น M2"},
-  {u:"M2-01",t:"Coffee Is Consulting and Supply Co., Ltd. / Coffee is",tw:"ES",fl:"M2",m:"CHEFMAN (E)",ct:1,b:154005.0,loc:"ชาร์ป M2 ข้างบันไดเลื่อน"},
-  {u:"FM-A 34(M2 FL.)",t:"Lalalash CO.,Ltd.",tw:"ES",fl:"M2",m:"2124 0113212",ct:1,b:370.3,loc:"ห้องตู้ไฟ M 2"},
-  {u:"SHOP 01 (M2 FL.)",t:"K-streat",tw:"ES",fl:"M2",m:"8025 0000432",ct:1,b:12933.0,loc:"ห้องตู้ไฟ M 2"},
-  {u:"OP1 (M2 FL.)",t:"Kachi Kachi (Thailand) CO.,Ltd.",tw:"ES",fl:"M2",m:"2124 0091896",ct:1,b:1390.4,loc:"ห้องตู้ไฟ M 2"},
-  {u:"OP2 (M2 FL.)",t:"กวยเตี๋ยวเรือเมืองทองธานี-EPT",tw:"ES",fl:"M2",m:"2124 0104117",ct:1,b:730.7,loc:"ห้องตู้ไฟ M 2"},
-  {u:"OP3 (M2 FL.)",t:"SAN HENG FOOD AND TRADING GROUP CO., LTD.(แสนเฮง)",tw:"ES",fl:"M2",m:"2124 0125529",ct:1,b:1559.3,loc:"ห้องตู้ไฟ M 2"},
-  {u:"OP4 (M2 FL.)",t:"ซุย กวยเตี๋ยวหมูต้มยำ",tw:"ES",fl:"M2",m:"2124 0125530",ct:1,b:2041.0,loc:"ห้องตู้ไฟ M 2"},
-  {u:"OP5 (M2 FL.)",t:"ข้าวหมูกรอบนายไซ",tw:"ES",fl:"M2",m:"2124 0125531",ct:1,b:2165.1,loc:"ห้องตู้ไฟ M 2"},
-  {u:"OP6 (M2 FL.)",t:"บริษัท สยามวรางกูร จำกัด (ข้าวหมกไก่สยาม)",tw:"ES",fl:"M2",m:"2124 0125528",ct:1,b:2326.0,loc:"ห้องตู้ไฟ M 2"},
-  {u:"OP7 (M2 FL.)",t:"เพ้งโภชนา ราชากวยเตี๋ยวคั่วไก่",tw:"ES",fl:"M2",m:"2124 0125590",ct:1,b:692.7,loc:"ห้องตู้ไฟ M 2"},
-  {u:"OP8 (M2 FL.)",t:"ผัดไทยกั้งราชพฤกษ์",tw:"ES",fl:"M2",m:"2124 0125588",ct:1,b:1742.9,loc:"ห้องตู้ไฟ M 2"},
-  {u:"OP9 (M2 FL.)",t:"RITA takara (Tonkatsu Shoku)",tw:"ES",fl:"M2",m:"2124 0125591",ct:1,b:5284.3,loc:"ห้องตู้ไฟ M 2"},
-  {u:"OP10 (M2 FL.)",t:"Bowlcraft Shop",tw:"ES",fl:"M2",m:"2124 0125649",ct:1,b:2423.5,loc:"ห้องตู้ไฟ M 2"},
-  {u:"OP11 (M2 FL.)",t:"GYUMENYA",tw:"ES",fl:"M2",m:"2124 0125689",ct:1,b:2341.1,loc:"ห้องตู้ไฟ M 2"},
-  {u:"OP12 (M2 FL.)",t:"Madam ครก",tw:"ES",fl:"M2",m:"2124 0125650",ct:1,b:1334.4,loc:"ห้องตู้ไฟ M 2"},
-  {u:"OP13 (M2 FL.)",t:"Empty",tw:"ES",fl:"M2",m:"2124 0125651",ct:1,b:1074.1,loc:"ห้องตู้ไฟ M 2"},
-  {u:"OP14 (M2 FL.)",t:"Empty",tw:"ES",fl:"M2",m:"2124 0125648",ct:1,b:4955.3,loc:"ห้องตู้ไฟ M 2"},
-  {u:"จอ LED1 (M2 FL.)",t:"AWC Lifestyle Commercial Property Co., Ltd",tw:"ES",fl:"M2",m:"M Shape LED Screen",ct:1,b:15.048,loc:"AHU M2 หน้า K-Streat ใหม่"},
-  {u:"จอ LED2 (M2 FL.)",t:"AWC Lifestyle Commercial Property Co., Ltd",tw:"ES",fl:"M2",m:"Pilar LED Screen",ct:1,b:10.266,loc:"AHU M2 หน้า K-Streat ใหม่"},
-  {u:"FM-A 33 (M2 FL.)",t:"Coco Monkey",tw:"ES",fl:"M2",m:"9262015",ct:1,b:1615.9,loc:"M2 เสา FM29"},
-  {u:"FM-A 32 (M2 FL.)",t:"Khun Anuyut Yosphornpaiboon (BALTER)",tw:"ES",fl:"M2",m:"1325 4017801",ct:1,b:99.0,loc:"ในร้านติดกระจก"},
-  {u:"MP-07",t:"Metster Co., Ltd. (Hygge Mate)",tw:"ES",fl:"M2",m:"540250403510",ct:1,b:1.9785,loc:"ร้านชาหน้า HP อยู่ห้อง AHU ชั้น M2"},
-  {u:"209",t:"Asia Books Co., Ltd.(ร้านหนังสือ ชั้น2)",tw:"ES",fl:"2",m:"T209",ct:1,b:31839.08,loc:"ชั้น 2 ปีนบันไดลิง"},
-  {u:"PROMOTION AREA",t:"Khun Dhammaluck Chaikriangkrai / Blue Lion",tw:"ES",fl:"2",m:"A221-7003647-OE",ct:1,b:58598.0,loc:"2 ภายในร้าน"},
-  {u:"MP-02",t:"Rich Smile Co., Ltd.(SOURI)",tw:"ES",fl:"2",m:"8500912",ct:1,b:4722.6,loc:"ร้านขนมหน้า Virgin (อยู่ในร้าน)"},
-  {u:"GP-03",t:"Empty",tw:"ES",fl:"G",m:"2124 0103740",ct:1,b:2297.6,loc:"มิเตอร์ในห้องปั้ม B1"},
-  {u:"201 INDOOR",t:"Eric Kayser (Thailand) Co., Ltd.",tw:"ES",fl:"2",m:"4262480231",ct:1,b:301254.5,loc:"ชั้น 2 ปีนบันไดลิง"},
-  {u:"202 INDOOR",t:"The Fresh Food Company Limited / Getfresh",tw:"ES",fl:"2",m:"T202",ct:1,b:771047.3,loc:"ชั้น 2 ปีนบันไดลิง"},
-  {u:"204 INDOOR",t:"Iberry Homemade Co., Ltd. / กับข้าวกับปลา",tw:"ES",fl:"2",m:"T204",ct:1,b:785589.3,loc:"ชั้น 2 ปีนบันไดลิง"},
-  {u:"205 INDOOR",t:"TCC Hotel Collection Co.,Ltd.(Cafe Pittore)",tw:"ES",fl:"2",m:"T205",ct:1,b:678321.9,loc:"ชั้น 2 ปีนบันไดลิง"},
-  {u:"207",t:"We Eat Co., Ltd. / Tim Hortans",tw:"ES",fl:"2",m:"T207",ct:1,b:501334.4,loc:"ชั้น 2 ปีนบันไดลิง"},
-  {u:"208",t:"Naeki Sushi Co., Ltd.",tw:"ES",fl:"2",m:"4262240212",ct:1,b:172546.0,loc:"ชั้น 2 ปีนบันไดลิง"},
-  {u:"2FL. Frontblock",t:"Fax Lite Co,Ltd.",tw:"ES",fl:"2",m:"T101-6016074-RY",ct:1,b:98628.0,loc:"ห้อง AHU ชั้น 2 FB (ในสุด ข้าง ลิฟท์)"},
-  {u:"G The Gallery",t:"The Gallery",tw:"ES",fl:"G",m:"A061-6040792-PS",ct:1,b:7723.3,loc:"ชั้น G อยู่ซอกข้างร้าน"},
-  {u:"G02",t:"Krung Thai Bank PCL.",tw:"ES",fl:"G",m:"T5",ct:1,b:726126.0,loc:"ชาร์ปชั้นไฟ G"},
-  {u:"G03 (A261-9010399-QH)",t:"Nose Tea (Thailand) Co.,Ltd",tw:"ES",fl:"G",m:"A261-9010399-QH",ct:1,b:7690.9,loc:"ชาร์ปไฟ ชั้น G ปีนตู้ไฟ มุมซ้ายมือ"},
-  {u:"G03 (T4)",t:"Nose Tea (Thailand) Co.,Ltd",tw:"ES",fl:"G",m:"T4",ct:1,b:431796.0,loc:"ชาร์ปชั้นไฟ G"},
-  {u:"G04",t:"CLOUD 64 CO., LTD. (Wuagyu)",tw:"ES",fl:"G",m:"9856953",ct:40,b:1511.3,loc:"ห้องปั๊มชั้น B1"},
-  {u:"G EA Lobby G",t:"EA Lobby G",tw:"ES",fl:"G",m:"A261-7007036-TB",ct:1,b:214.3,loc:"ในห้อง AHU ชั้น G ข้าง LIFE 33"},
-  {u:"T02 INDOOR",t:"Mugendai Co., Ltd.",tw:"ES",fl:"G",m:"4262130278",ct:1,b:1215015.0,loc:"ชาร์ปชั้น G ปีนบันได"},
-  {u:"T03-T04 INDOOR (T103)",t:"Coffee Consepts Retail Co., Ltd. / Starbucks Coffee",tw:"ES",fl:"G",m:"T103",ct:1,b:692964.7,loc:"ชาร์ปชั้น G ปีนบันได"},
-  {u:"T03-T04 INDOOR (T104)",t:"Coffee Consepts Retail Co., Ltd. / Starbucks Coffee",tw:"ES",fl:"G",m:"T104",ct:1,b:101412.4,loc:"ชาร์ปชั้น G ปีนบันได"},
-  {u:"T05-06-2",t:"The QSR of Asia Co., Ltd. (KFC)",tw:"ES",fl:"G",m:"4260050080",ct:1,b:581160.6,loc:"ชาร์ปชั้น G ปีนบันได"},
-  {u:"T05-06-2(T06)",t:"The QSR of Asia Co., Ltd (KFC)",tw:"ES",fl:"G",m:"T3A",ct:1,b:1214098.0,loc:"ชาร์ปชั้นไฟ G"},
-  {u:"T07",t:"Empty",tw:"ES",fl:"G",m:"A261-6000206",ct:30,b:9995.9,loc:"ในพื้นที่ลูกค้า"},
-  {u:"T08",t:"TCC Hotel Collection Co.,Ltd.(Cafe Pittore)",tw:"ES",fl:"G",m:"T021-4015988-KB",ct:1,b:8116.25,loc:"ชาร์ปชั้น G ยกเลิกใช้งาน"},
-  {u:"T09 ร้านแว่น",t:"Ruam Charoen Pattana Public Company Limited. / Eye Class",tw:"ES",fl:"G",m:"4262240227",ct:1,b:61555.72,loc:"ในห้อง AHU ชั้น M2"},
-  {u:"T01 INDOOR",t:"Jones Salad x Samuntoon",tw:"ES",fl:"G",m:"T101-1",ct:1,b:789422.0,loc:"ชาร์ปชั้น G ปีนบันได"},
-  {u:"301",t:"Imsub Global Cuisine Co.,Ltd. / KOUEN",tw:"ES",fl:"3",m:"4260040203",ct:1,b:1495904.0,loc:"ชาร์ปไฟชั้น 3"},
-  {u:"302",t:"Empty",tw:"ES",fl:"3",m:"T302-T303",ct:1,b:653061.6,loc:"ชาร์ปไฟชั้น 3"},
-  {u:"304",t:"Pandora Skin and Wellness Co.,Ltd.",tw:"ES",fl:"3",m:"4262240225",ct:1,b:56751.14,loc:"ชาร์ปไฟชั้น 3"},
-  {u:"305A",t:"Khun Ausaraporn Thongvisoong(ส่งพัสดุ)",tw:"ES",fl:"3",m:"T305A/9188628",ct:1,b:182.8,loc:"ในร้าน"},
-  {u:"305B",t:"CAT FLORIST",tw:"ES",fl:"3",m:"T305B",ct:1,b:492029.2,loc:"ชาร์ปไฟชั้น 3"},
-  {u:"401",t:"Empty",tw:"ES",fl:"4",m:"T401",ct:1,b:537880.8,loc:"ชาร์ปไฟชั้น 4 (T401)"},
-  {u:"401/1",t:"Empire Recover Co., Ltd. (Recover Clinic)",tw:"ES",fl:"4",m:"DPM1",ct:1,b:16763.4,loc:"ชาร์ปไฟชั้น 4 (401/1)"},
-  {u:"401/2",t:"Empire Recover Co., Ltd. (Recover Clinic)",tw:"ES",fl:"4",m:"DPM2",ct:1,b:21155.5,loc:"ชาร์ปไฟชั้น 4 (401/2)"},
-  {u:"401/3",t:"Empty",tw:"ES",fl:"4",m:"DPM3",ct:1,b:11407.1,loc:"ชาร์ปไฟชั้น 4 (401/3)"},
-  {u:"401/4",t:"Empty",tw:"ES",fl:"4",m:"Q23531",ct:1,b:5167.8,loc:"ชาร์ปไฟชั้น 4 (401/4)"},
-  {u:"402",t:"Plus Dental Clinic Co., Ltd",tw:"ES",fl:"4",m:"4262430072",ct:1,b:87195.5,loc:"ชาร์ปไฟชั้น 4 (T402)"},
-  {u:"501",t:"Waseda Education (Thailand) Co., Ltd.",tw:"ES",fl:"5",m:"T501",ct:1,b:677959.3,loc:"ชาร์ปไฟชั้น 5 (T501)"},
-  {u:"601/1",t:"TC Medical Service Co., Ltd.",tw:"ES",fl:"6",m:"564001778/1144438",ct:1,b:9284.64,loc:"ชาร์ปไฟชั้น 6 (T602)"},
-  {u:"601/2-3",t:"TC Medical Service Co., Ltd.",tw:"ES",fl:"6",m:"4262240196",ct:1,b:110955.5,loc:"ชาร์ปไฟชั้น 6 (T601)"},
-  {u:"206 INDOOR",t:"Virgin Active (Thailand) Limited",tw:"ES",fl:"7",m:"1312062430859",ct:1,b:941547.2,loc:"ชาร์ปไฟชั้น 7 (7D2)"},
-  {u:"801",t:"Virgin Active (Thailand) Limited",tw:"ES",fl:"8",m:"1307251466090",ct:1,b:647037.9,loc:"ชาร์ปไฟชั้น 8"},
-  {u:"901",t:"Virgin Active (Thailand) Limited",tw:"ES",fl:"9",m:"1312062430860",ct:1,b:295054.3,loc:"ชาร์ปไฟ ชั้น 9"},
-  {u:"Outdoor LED Screen",t:"AWC Lifestyle Commercial Property Co., Ltd.",tw:"ES",fl:"Roof",m:"9545034",ct:80,b:510.3,loc:"ดาดฟ้าตึก FB"},
-  {u:"801 (T1001-ดาดฟ้า)",t:"Virgin Active (Thailand) Limited / ดาดฟ้า",tw:"ES",fl:"8",m:"1307251466093",ct:1,b:242528.63,loc:"ช่างเวอร์จิ้นจดให้"},
-  {u:"R5",t:"Superfood Cafe Co., Ltd.(Get fresh)",tw:"B1",fl:"B1",m:"ACAI",ct:1,b:21063.0,loc:"ในร้าน acai"},
-  {u:"B1 (Cafe Pittore)",t:"TCC Hotel Collection Co.,Ltd.(Cafe Pittore)",tw:"B1",fl:"B1",m:"A291-7013443-CD",ct:1,b:26524.0,loc:"ในห้องปั๊มน้ำ ชั้น B1"},
-  {u:"B1(Fl.B1-0-3)",t:"Common Area (Owner)",tw:"B1",fl:"B1",m:"8489891",ct:1,b:7677.9,loc:"ชาร์ป B1 (Top)"},
-  {u:"B1 Marriott",t:"TCC Hotel Collection.",tw:"B1",fl:"B1",m:"B1 Marriott",ct:1,b:26.61,loc:"ห้องเก็บของ Marriott (หน่วยเป็น Mwh*1000)"},
-  {u:"B1 Marriott(Chiller Room)",t:"TCC Hotel Collection.",tw:"B1",fl:"B1",m:"680701835",ct:1,b:13356.0,loc:"B1หลังลิฟท์20"},
-  {u:"B4 AIS",t:"Fax Lite Co,Ltd. (AIS)",tw:"B4",fl:"B4",m:"1125 0065607",ct:1,b:773.2,loc:"ห้องลูกกรงติดผนังข้างประตูหนีไฟชั้น B4"},
-  {u:"B01",t:"Empty",tw:"B1",fl:"B1",m:"T2",ct:1,b:366547.0,loc:"ชาร์ปชั้นไฟ G"},
-  {u:"K27",t:"Organic Living (Thailand) Co., Ltd/Malatang",tw:"B1",fl:"B1",m:"9754867",ct:1,b:81805.0,loc:"ข้างร้านเสริมสวย ชั้น B1"},
-  {u:"R1 (ร้านขายยา)",t:"Khun Sumitra Desudchit / ร้านขายยา",tw:"B1",fl:"B1",m:"9855093",ct:1,b:55407.0,loc:"ในร้านขายยา ชั้น B1"},
-  {u:"R12",t:"Khun Malinee Laotummatus / ร้านเสริมสวย",tw:"B1",fl:"B1",m:"9754861",ct:1,b:85152.0,loc:"ข้างร้านเสริมสวย ชั้น B1"},
-  {u:"R2/1",t:"Boot Retails (Thailand) Ltd.",tw:"B1",fl:"B1",m:"9851929",ct:1,b:1377.0,loc:"ในร้าน boot ชั้น B1"},
-  {u:"R3 (Kasikornbank PCL)",t:"Empty",tw:"B1",fl:"B1",m:"9858092",ct:1,b:72394.0,loc:"พี่ไผ่จดให้"},
-  {u:"R4",t:"Bank of Ayudhya Public Company",tw:"B1",fl:"B1",m:"9853655",ct:1,b:64913.0,loc:"จดในธนาคาร"},
-  {u:"FOODCOURT",t:"Central Food Retail Company Limited",tw:"B1",fl:"B1",m:"3400600013845",ct:1000000,b:3.8661,loc:"ข้าง office Top"},
-  {u:"STOCK AREA- B1 TOPS",t:"Central Food Retail Company Limited",tw:"B1",fl:"B1",m:"8371716",ct:30,b:5769.0,loc:"ชาร์ป B1 (Top)"},
-  {u:"Fl.B1-0-2",t:"Central Food Retail Company Limited",tw:"B1",fl:"B1",m:"8489876",ct:120,b:3816.5,loc:"ชาร์ป B1 (Top)"},
-  {u:"B1-TOPS",t:"Common Area (Owner)",tw:"B1",fl:"B1",m:"8489875",ct:80,b:4929.4,loc:"ชาร์ป B1 (Top)"},
-  {u:"Zone2",t:"KAMU KAMU Co.,Ltd.",tw:"B1",fl:"B1",m:"9236860",ct:1,b:10756.0,loc:"ในร้าน"},
-  {u:"Zone3",t:"Bright Mind Retail Co., Ltd.(BAIMIANG)",tw:"B1",fl:"B1",m:"9475234",ct:1,b:6450.0,loc:"ในร้าน"},
-  {u:"Zone 1,4",t:"Akha Mae Chan Tai Coffee shop",tw:"B1",fl:"B1",m:"A291-7010596-LF",ct:1,b:47774.0,loc:"ในร้าน"},
-  {u:"Parking B1 (Haup Car)",t:"Haup Car Company Limited",tw:"B1",fl:"B1",m:"21210010218",ct:1,b:7132.9,loc:"ลานชาร์ต ชั้น B1 ฝั่งพื้นสีฟ้า"},
-  {u:"Parking B1 (EA Anywhere)",t:"EA Anywhere and Southeast (SEAD)",tw:"B1",fl:"B1",m:"39866",ct:1,b:158341.1,loc:"หลังลานชาร์ต ชั้น B1 ฝั่งสีเขียว"},
-  {u:"MDF-True Internet",t:"True Internet Corporation Company Limited",tw:"B1",fl:"B1",m:"A061-7008046-PY",ct:1,b:8711.3,loc:"ในห้อง MDF ชั้น B1 ข้างห้อง fitout"},
-  {u:"B1-0-4",t:"B1 Floor (Owner)",tw:"B1",fl:"B1",m:"8379894",ct:1,b:49721.0,loc:"ในห้องปั๊มน้ำ ชั้น B1"},
-  {u:"B1-0-5",t:"B1 Floor (Owner)",tw:"B1",fl:"B1",m:"8490330",ct:1,b:14453.0,loc:"ห้องพัดลม หลัง Top ตรงข้าม ร้าน K15"},
-  {u:"BTS-FAX(Fl.10-CP-2)",t:"Fax Lite Co,Ltd.(AIS)",tw:"P10",fl:"P10",m:"8503477",ct:1,b:52719.0,loc:"ห้องลูกกรง ชั้น P10 ข้างห้องพักแม่บ้าน"},
-  {u:"P10 (T061-6024000-RQ)",t:"True Move H Universal Communication Co., Ltd.",tw:"P10",fl:"P10",m:"T061-6024000-RQ",ct:1,b:9864.3,loc:"ชั้น P10 ทางลงไป P9"},
-  {u:"Samsung-R1",t:"AWC Lifestyle Commercial Property Co., Ltd.",tw:"P10",fl:"P10",m:"9253727",ct:1,b:97833.0,loc:"ชั้น R1 Tower 2"},
-  {u:"OP-09 (10FL.)",t:"Empty",tw:"P10",fl:"P10",m:"2124 0043201",ct:1,b:0.9,loc:"ชั้น P10 ตู้เมนไฟ Tower 1"},
-  {u:"OP-10 (10FL.)",t:"Empty",tw:"P10",fl:"P10",m:"2124 0071970",ct:1,b:28.1,loc:"ชั้น P10 ตู้เมนไฟ Tower 1"},
-  {u:"OP-08 (10FL.)",t:"Empty",tw:"P10",fl:"P10",m:"2124 0043230",ct:1,b:0.9,loc:"ชั้น P10 ตู้เมนไฟ Tower 1"},
-  {u:"OP-07 (10FL.)",t:"Empty",tw:"P10",fl:"P10",m:"2124 0043291",ct:1,b:0.9,loc:"ชั้น P10 ตู้เมนไฟ Tower 1"},
-  {u:"OP-06 (10FL.)",t:"Empty",tw:"P10",fl:"P10",m:"2124 0043204",ct:1,b:0.9,loc:"ชั้น P10 ตู้เมนไฟ Tower 1"},
-  {u:"OP-05 (10FL.)",t:"Empty",tw:"P10",fl:"P10",m:"2124 0071971",ct:1,b:0.9,loc:"ชั้น P10 ตู้เมนไฟ Tower 1"},
-  {u:"OP-04 (10FL.)",t:"The Follow Cafe",tw:"P10",fl:"P10",m:"2124 0071972",ct:1,b:3204.2,loc:"ชั้น P10 ตู้เมนไฟ Tower 1"},
-  {u:"OP-03 (10FL.)",t:"Empty",tw:"P10",fl:"P10",m:"2124 0043306",ct:1,b:148.5,loc:"ชั้น P10 ตู้เมนไฟ Tower 1"},
-  {u:"OP-02 (10FL.)",t:"Empty",tw:"P10",fl:"P10",m:"2124 0043573",ct:1,b:291.8,loc:"ชั้น P10 ตู้เมนไฟ Tower 1"},
-  {u:"OP-01 (10FL.)",t:"Empty",tw:"P10",fl:"P10",m:"2124 0043290",ct:1,b:563.5,loc:"ชั้น P10 ตู้เมนไฟ Tower 1"},
-  {u:"OP-11 (10FL.)",t:"Empty",tw:"P10",fl:"P10",m:"2124 0043229",ct:1,b:0.9,loc:"ชั้น P10 ตู้เมนไฟ Tower 1"},
-  {u:"OP-12 (10FL.)",t:"Empty",tw:"P10",fl:"P10",m:"2124 0071969",ct:1,b:1.1,loc:"ชั้น P10 ตู้เมนไฟ Tower 1"},
-  {u:"OP-13 (10FL.)",t:"Empty",tw:"P10",fl:"P10",m:"2124 0043305",ct:1,b:0.9,loc:"ชั้น P10 ตู้เมนไฟ Tower 1"},
-  {u:"OP-14 (10FL.)",t:"Empty",tw:"P10",fl:"P10",m:"2124 0043575",ct:1,b:0.9,loc:"ชั้น P10 ตู้เมนไฟ Tower 1"},
-  {u:"OP-15 (10FL.)",t:"Empty",tw:"P10",fl:"P10",m:"2124 0043274",ct:1,b:0.9,loc:"ชั้น P10 ตู้เมนไฟ Tower 1"},
-  {u:"OP-16 (10FL.)",t:"Empty",tw:"P10",fl:"P10",m:"2124 0043275",ct:1,b:1.0,loc:"ชั้น P10 ตู้เมนไฟ Tower 1"},
-  {u:"OP-17 (10FL.)",t:"Empty",tw:"P10",fl:"P10",m:"2124 0043308",ct:1,b:0.8,loc:"ชั้น P10 ตู้เมนไฟ Tower 1"},
-  {u:"KIOS-01 (10FL.)",t:"Empty",tw:"P10",fl:"P10",m:"2124 0043231",ct:1,b:0.9,loc:"ชั้น P10 ตู้เมนไฟ Tower 1"},
-  {u:"KIOS-02 (10FL.)",t:"Empty",tw:"P10",fl:"P10",m:"2124 0043508",ct:1,b:0.9,loc:"ชั้น P10 ตู้เมนไฟ Tower 1"},
-  {u:"KIOS-03 (10FL.)",t:"Empty",tw:"P10",fl:"P10",m:"2124 0043289",ct:1,b:1.0,loc:"ชั้น P10 ตู้เมนไฟ Tower 1"},
-  {u:"KIOS-04 (10FL.)",t:"Empty",tw:"P10",fl:"P10",m:"2124 0043232",ct:1,b:0.9,loc:"ชั้น P10 ตู้เมนไฟ Tower 1"},
-  {u:"SP-01 (10FL.)",t:"LARB PHAYAK CO., LTD.(Larbsiab)",tw:"P10",fl:"P10",m:"2124 0057527",ct:1,b:611.0,loc:"ชั้น P10 ตู้เมนไฟ Tower 1"},
-  {u:"SP-02 (10FL.)",t:"LARB PHAYAK CO., LTD.(Larbsiab)",tw:"P10",fl:"P10",m:"2124 0057745",ct:1,b:240.0,loc:"ชั้น P10 ตู้เมนไฟ Tower 1"},
-  {u:"SPARE-01 (10FL.)",t:"Empty",tw:"P10",fl:"P10",m:"2124 0043505",ct:1,b:0.9,loc:"ชั้น P10 ตู้เมนไฟ Tower 1"},
-  {u:"SPARE-02 (10FL.)",t:"Empty",tw:"P10",fl:"P10",m:"2124 0071982",ct:1,b:0.9,loc:"ชั้น P10 ตู้เมนไฟ Tower 1"},
-  {u:"1103",t:"TCC Hotel Collection Co.,Ltd.",tw:"T2",fl:"11",m:"8389257",ct:30,b:5654.9,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1108-09 (8418182)",t:"TCC Hotel Collection Co.,Ltd.",tw:"T2",fl:"11",m:"8418182",ct:1,b:23534.0,loc:"ห้อง M&E"},
-  {u:"1108-09 (8371744)",t:"TCC Hotel Collection Co.,Ltd.",tw:"T2",fl:"11",m:"8371744",ct:30,b:7982.2,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1106",t:"AWC Lifestyle Commercial Property Co., Ltd.",tw:"T3",fl:"11",m:"8418308",ct:1,b:42065.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1106 (ห้องเก็บของ)",t:"AWC Lifestyle Commercial Property Co., Ltd.",tw:"T3",fl:"11",m:"8418306",ct:1,b:60059.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1107",t:"AWC Lifestyle Commercial Property Co., Ltd.",tw:"T3",fl:"11",m:"8418331",ct:1,b:58226.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1108-09 (8418317)",t:"TCC Hotel Collection Co.,Ltd.(Nobu)",tw:"T3",fl:"11",m:"8418317",ct:1,b:47260.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1108-09 (8399255)",t:"TCC Hotel Collection Co.,Ltd.(Nobu)",tw:"T2",fl:"11",m:"8399255",ct:80,b:624.9,loc:"ห้อง M&E"},
-  {u:"1108",t:"TCC Hotel Collection Co.,Ltd.(Nobu)",tw:"T2",fl:"11",m:"8379890",ct:1,b:80479.0,loc:"ห้อง M&E"},
-  {u:"1201",t:"Forvis Mazars (Thailand) Ltd.",tw:"T1",fl:"12",m:"8374264",ct:1,b:98953.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1202",t:"Forvis Mazars (Thailand) Ltd.",tw:"T1",fl:"12",m:"8421087",ct:1,b:88320.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1203",t:"Forvis Mazars (Thailand) Ltd.",tw:"T2",fl:"12",m:"8431211",ct:1,b:98449.0,loc:"ห้อง M&E"},
-  {u:"1203 (1203-4)",t:"Forvis Mazars (Thailand) Ltd.",tw:"T2",fl:"12",m:"8431204",ct:1,b:61711.0,loc:"ห้อง M&E"},
-  {u:"1204",t:"Forvis Mazars (Thailand) Ltd.",tw:"T2",fl:"12",m:"8418123",ct:1,b:71252.0,loc:"ห้อง M&E"},
-  {u:"1205",t:"Forvis Mazars (Thailand) Ltd.",tw:"T2",fl:"12",m:"8423098",ct:1,b:27454.0,loc:"ห้อง M&E"},
-  {u:"1206",t:"Forvis Mazars (Thailand) Ltd.",tw:"T3",fl:"12",m:"8353746",ct:1,b:75915.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1207",t:"Forvis MaZars Ltd.",tw:"T3",fl:"12",m:"8359879",ct:1,b:44914.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1208",t:"Shoko (Thailand) Co.,Ltd.",tw:"T3",fl:"12",m:"8358702",ct:1,b:78065.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1209",t:"Forvis Mazars (Thailand) Ltd.",tw:"T3",fl:"12",m:"8398045",ct:1,b:99451.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1210",t:"Forvis Mazars (Thailand) Ltd.",tw:"T2",fl:"12",m:"8418150",ct:1,b:80290.0,loc:"ห้อง M&E"},
-  {u:"1211",t:"Forvis Mazars (Thailand) Ltd.",tw:"T2",fl:"12",m:"8431213",ct:1,b:52625.0,loc:"ห้อง M&E"},
-  {u:"1212 (1211-12)",t:"Forvis Mazars (Thailand) Ltd.",tw:"T2",fl:"12",m:"8399743",ct:1,b:29514.0,loc:"ห้อง M&E"},
-  {u:"1212",t:"Forvis Mazars (Thailand) Ltd.",tw:"T2",fl:"12",m:"8418141",ct:1,b:44053.0,loc:"ห้อง M&E"},
-  {u:"1213",t:"Infomax Systems Solution & Services Ltd.",tw:"T1",fl:"12",m:"8379920",ct:1,b:14975.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1214",t:"Empty",tw:"T1",fl:"12",m:"8418683",ct:1,b:79711.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1401",t:"Perfect Companion Group Co., Ltd.",tw:"T1",fl:"14",m:"8379918",ct:1,b:78322.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1402",t:"Perfect Companion Group Co., Ltd.",tw:"T1",fl:"14",m:"8374328",ct:1,b:85814.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1403",t:"FEIC (Thailand) Ltd.",tw:"T2",fl:"14",m:"8398033",ct:1,b:87611.0,loc:"ห้อง M&E"},
-  {u:"1404",t:"Digital & Marketing Co.,Ltd.",tw:"T2",fl:"14",m:"8431433",ct:1,b:39732.0,loc:"ห้อง M&E"},
-  {u:"1405",t:"Empty",tw:"T2",fl:"14",m:"8379922",ct:1,b:78053.0,loc:"ห้อง M&E"},
-  {u:"1406",t:"Empty",tw:"T3",fl:"14",m:"8398067",ct:1,b:74577.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1407",t:"Empty",tw:"T3",fl:"14",m:"8360990",ct:1,b:27947.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1408",t:"Empty",tw:"T3",fl:"14",m:"8398083",ct:1,b:55613.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1409",t:"Empty",tw:"T3",fl:"14",m:"8398091",ct:1,b:47143.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1410",t:"Empty",tw:"T2",fl:"14",m:"9558627",ct:1,b:72288.0,loc:"ห้อง M&E"},
-  {u:"1411",t:"Empty",tw:"T2",fl:"14",m:"8329135",ct:1,b:85298.0,loc:"ห้อง M&E"},
-  {u:"1412",t:"ACACIA I.T. SERVICE (TH) Co.,Ltd",tw:"T2",fl:"14",m:"8900838",ct:1,b:86214.0,loc:"ห้อง M&E"},
-  {u:"1413",t:"Empty",tw:"T1",fl:"14",m:"8374280",ct:1,b:52971.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1414",t:"Perfect Companion Group Co., Ltd.",tw:"T1",fl:"14",m:"8374269",ct:1,b:71464.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1501",t:"Empty",tw:"T1",fl:"15",m:"8379928",ct:1,b:30058.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1502",t:"Empty",tw:"T1",fl:"15",m:"8374343",ct:1,b:93768.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1503",t:"Pacific Business Consulting (Thailand) Co., Ltd.",tw:"T2",fl:"15",m:"8431225",ct:1,b:98134.0,loc:"ห้อง M&E"},
-  {u:"1503-04",t:"Sharing",tw:"T2",fl:"15",m:"8423104",ct:1,b:90956.0,loc:"ห้อง M&E"},
-  {u:"1504",t:"Empty",tw:"T2",fl:"15",m:"8421035",ct:1,b:9848.0,loc:"ห้อง M&E"},
-  {u:"1505",t:"Toyal (Thailand) Co., Ltd.",tw:"T2",fl:"15",m:"8629510",ct:1,b:36653.0,loc:"ห้อง M&E"},
-  {u:"1506",t:"Nichicon (Thailand) Co., Ltd.",tw:"T3",fl:"15",m:"8398040",ct:1,b:4246.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1507",t:"Sharing",tw:"T3",fl:"15",m:"8360976",ct:1,b:7671.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1508",t:"Empty",tw:"T3",fl:"15",m:"8359862",ct:1,b:66568.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1509",t:"GROW TIGER CONSULTING CO,.LTD.",tw:"T3",fl:"15",m:"8398082",ct:1,b:23635.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1510",t:"Nidec Mobility (Thailand) Co., Ltd.",tw:"T2",fl:"15",m:"8418127",ct:1,b:65149.0,loc:"ห้อง M&E"},
-  {u:"1511",t:"Empty",tw:"T2",fl:"15",m:"8431203",ct:1,b:92767.0,loc:"ห้อง M&E"},
-  {u:"1512",t:"Empty",tw:"T2",fl:"15",m:"8418084",ct:1,b:31727.0,loc:"ห้อง M&E"},
-  {u:"1513",t:"Gift Fertility Co.,Ltd.",tw:"T1",fl:"15",m:"8374308",ct:1,b:48464.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1514",t:"bangkok Sukhumvit Luxury Hotel Co., Ltd",tw:"T1",fl:"15",m:"8374315",ct:1,b:14036.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1601",t:"Embassy of the Republic of Turkey",tw:"T1",fl:"16",m:"8379904",ct:1,b:83776.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1601(R1)",t:"Embassy of the Republic of Turkey",tw:"T1",fl:"16",m:"540250152782",ct:1000,b:103.04,loc:"ชั้นR1 บริเวณหน้าลิปท์ 20"},
-  {u:"1602",t:"Empty",tw:"T1",fl:"16",m:"8379903",ct:1,b:65216.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1603",t:"Empty",tw:"T1",fl:"16",m:"8379919",ct:1,b:25372.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1604-05",t:"Empty",tw:"T2",fl:"16",m:"A291-7000366-VW",ct:1,b:80965.0,loc:"ห้อง M&E"},
-  {u:"1604-06",t:"Empty",tw:"T2",fl:"16",m:"8389299",ct:30,b:9198.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1606",t:"Seals Thai Inter Co.,Ltd.",tw:"T2",fl:"16",m:"9769284",ct:1,b:49865.0,loc:"ห้อง M&E"},
-  {u:"1607",t:"Dr.Reddy Laboratories (Thailand) Ltd.",tw:"T3",fl:"16",m:"8418130",ct:1,b:18814.0,loc:"ห้อง M&E"},
-  {u:"1608 (8780341)",t:"Dr.Reddy Laboratories (Thailand) Ltd.",tw:"T3",fl:"16",m:"8780341",ct:1,b:59858.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1608 (8423070)",t:"Dr.Reddy Laboratories (Thailand) Ltd.",tw:"T3",fl:"16",m:"8423070",ct:1,b:47581.0,loc:"ห้อง M&E"},
-  {u:"1609(LP)",t:"Alta Global Commerce (Thailand)",tw:"T3",fl:"16",m:"8418103",ct:1,b:59831.0,loc:"ห้อง M&E"},
-  {u:"1609/1(AHU)",t:"Alta Global Commerce (Thailand)",tw:"T3",fl:"16",m:"8418149",ct:1,b:99964.0,loc:"ห้อง M&E"},
-  {u:"1610 (8423103)LP",t:"Alta Global Commerce (Thailand)",tw:"T3",fl:"16",m:"8423103",ct:1,b:81898.0,loc:"ห้อง M&E"},
-  {u:"1610 (8513553)FCC",t:"Alta Global Commerce (Thailand)",tw:"T3",fl:"16",m:"8513553",ct:1,b:30662.0,loc:"ห้อง M&E"},
-  {u:"1611",t:"Empty",tw:"T3",fl:"16",m:"8398039",ct:1,b:35804.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1612",t:"Nityo Technologies",tw:"T3",fl:"16",m:"8359774",ct:1,b:38682.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1613",t:"Hotel World 7 Co.,Ltd.",tw:"T2",fl:"16",m:"8418250",ct:1,b:96070.0,loc:"ห้อง M&E"},
-  {u:"1614",t:"Empty",tw:"T2",fl:"16",m:"8418197",ct:1,b:15470.0,loc:"ห้อง M&E"},
-  {u:"1615 (8418154)",t:"Empty",tw:"T2",fl:"16",m:"8418154",ct:1,b:26225.0,loc:"ห้อง M&E"},
-  {u:"1615 (8423135)",t:"Empty",tw:"T2",fl:"16",m:"8423135",ct:1,b:62642.0,loc:"ห้อง M&E"},
-  {u:"1617,1617/1",t:"Embassy of the Republic of Turkey",tw:"T1",fl:"16",m:"8423130",ct:1,b:44269.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1701",t:"Empty",tw:"T1",fl:"17",m:"8379949",ct:1,b:64775.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1702",t:"Empty",tw:"T1",fl:"17",m:"8418695",ct:1,b:85697.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1703",t:"Empty",tw:"T2",fl:"17",m:"8359834",ct:1,b:68954.0,loc:"ห้อง M&E"},
-  {u:"1704",t:"Nishiyama Corporation (Thailand) Co.,Ltd.",tw:"T2",fl:"17",m:"8398107",ct:1,b:90837.0,loc:"ห้อง M&E"},
-  {u:"1705",t:"Eright Metals Co.,Ltd.",tw:"T2",fl:"17",m:"8359733",ct:1,b:75513.0,loc:"ห้อง M&E"},
-  {u:"1706",t:"Media Zone Tech (Thailand) Co.,Ltd.",tw:"T3",fl:"17",m:"8328821",ct:1,b:988.0,loc:"ห้อง M&E"},
-  {u:"1707",t:"Empty",tw:"T3",fl:"17",m:"8328781",ct:1,b:8080.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1708",t:"Empty",tw:"T3",fl:"17",m:"8360980",ct:1,b:7231.0,loc:"ห้อง M&E"},
-  {u:"1709",t:"Empty",tw:"T3",fl:"17",m:"8431499",ct:1,b:59014.0,loc:"ห้อง M&E"},
-  {u:"1710",t:"SUPNOVA COMPANY LIMITED",tw:"T2",fl:"17",m:"8938019",ct:1,b:36099.0,loc:"ห้อง M&E"},
-  {u:"1711",t:"Marvel Zenith CO.,Ltd.",tw:"T2",fl:"17",m:"8398096",ct:1,b:72252.0,loc:"ห้อง M&E"},
-  {u:"1712",t:"Empty",tw:"T2",fl:"17",m:"8398051",ct:1,b:30357.0,loc:"ห้อง M&E"},
-  {u:"1713",t:"Empty",tw:"T1",fl:"17",m:"8374285",ct:1,b:25405.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1714",t:"Empty",tw:"T1",fl:"17",m:"8374278",ct:1,b:2452.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1801",t:"Empty",tw:"T1",fl:"18",m:"8374335",ct:1,b:26380.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1802",t:"RAM Solution CO.,Ltd.",tw:"T1",fl:"18",m:"8379905",ct:1,b:71720.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1803",t:"China Telecom Global Ltd.",tw:"T2",fl:"18",m:"8398064",ct:1,b:74861.0,loc:"ห้อง M&E"},
-  {u:"1803-05",t:"Empty",tw:"T2",fl:"18",m:"8505289",ct:1,b:5187.5,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1804",t:"China Telecom (Thailand) Co., Ltd.",tw:"T2",fl:"18",m:"8398104",ct:1,b:24473.0,loc:"ห้อง M&E"},
-  {u:"1805",t:"Empty",tw:"T2",fl:"18",m:"8398058",ct:1,b:12096.0,loc:"ห้อง M&E"},
-  {u:"1806",t:"Leading Reproductive Center Co.,Ltd.",tw:"T3",fl:"18",m:"8360659",ct:1,b:72645.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1807",t:"Leading Reproductive Center Co.,Ltd.",tw:"T3",fl:"18",m:"8398066",ct:1,b:51219.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1808",t:"Leading Reproductive Center Co.,Ltd.",tw:"T3",fl:"18",m:"8398099",ct:1,b:85813.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1809",t:"Leading Reproductive Center Co.,Ltd.",tw:"T3",fl:"18",m:"8398103",ct:1,b:96854.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1810",t:"Doctor Without Border (Thailand)",tw:"T2",fl:"18",m:"8359849",ct:1,b:28135.0,loc:"ห้อง M&E"},
-  {u:"1811",t:"National Federation Of Fisheries Cooperatives",tw:"T2",fl:"18",m:"8359755",ct:1,b:81947.0,loc:"ห้อง M&E"},
-  {u:"1812",t:"ITEL GLOBAL Co., Ltd",tw:"T2",fl:"18",m:"8398012",ct:1,b:68137.0,loc:"M&E/C"},
-  {u:"1813",t:"Empty",tw:"T1",fl:"18",m:"8379897",ct:1,b:65680.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1814",t:"Empty",tw:"T1",fl:"18",m:"8379946",ct:1,b:23994.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1901(R2-T1/2101)",t:"Thai Samsung Electronics Co., Ltd.",tw:"T1",fl:"19",m:"9180618",ct:40,b:655.9,loc:"ชาร์ปไฟT1"},
-  {u:"1902 (1901)",t:"Ipsos Limited",tw:"T1",fl:"19",m:"8379911",ct:1,b:97041.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1901 (1902)",t:"Ipsos Limited",tw:"T1",fl:"19",m:"8374273",ct:1,b:56384.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1903",t:"Ipsos Limited",tw:"T2",fl:"19",m:"8379938",ct:1,b:16166.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1904",t:"DEG-Deutsche Investitions-Und Entwicklungsgesellschaft mbH",tw:"T2",fl:"19",m:"8353707",ct:1,b:50759.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1905",t:"DEG-Deutsche Investitions-Und Entwicklungsgesellschaft mbH",tw:"T2",fl:"19",m:"8398108",ct:1,b:82538.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1906",t:"Empty",tw:"T3",fl:"19",m:"8398088",ct:1,b:18268.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1907",t:"Empty",tw:"T3",fl:"19",m:"8359764",ct:1,b:79605.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1907/1",t:"Empty",tw:"T3",fl:"19",m:"8379907",ct:1,b:26719.0,loc:"ห้อง M&E"},
-  {u:"1907/2",t:"Empty",tw:"T3",fl:"19",m:"9856553",ct:1,b:2466.0,loc:"ห้อง M&E"},
-  {u:"1908",t:"Empty",tw:"T3",fl:"19",m:"8360994",ct:1,b:94491.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1909",t:"Ryoyo Electro (Thailand) Co., Ltd.",tw:"T3",fl:"19",m:"8360675",ct:1,b:22525.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1910",t:"Cotti Coffee International Limited.",tw:"T2",fl:"19",m:"8418212",ct:1,b:50293.0,loc:"ห้อง M&E"},
-  {u:"1911",t:"Ipsos Limited",tw:"T2",fl:"19",m:"8379914",ct:1,b:89430.0,loc:"ห้อง M&E"},
-  {u:"1912",t:"Ipsos Limited",tw:"T2",fl:"19",m:"8379887",ct:1,b:99028.0,loc:"ห้อง M&E"},
-  {u:"1914 (เดิม1913)",t:"Ipsos Limited",tw:"T1",fl:"19",m:"8379899",ct:1,b:84636.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"1913 (เดิม1914)",t:"Ipsos Limited",tw:"T1",fl:"19",m:"8374291",ct:1,b:72054.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"2001",t:"Bluebik Group Public Company Limited",tw:"T1",fl:"20",m:"8359984",ct:1,b:12971.0,loc:"ห้องM&Eพื้นที่ผู้เช่าT1โซนA,B"},
-  {u:"2002",t:"Empty",tw:"T1",fl:"20",m:"8423094",ct:1,b:58514.0,loc:"ห้องM&Eพื้นที่ผู้เช่าT1โซนA,B"},
-  {u:"2003",t:"Empty",tw:"T2",fl:"20",m:"8423100",ct:1,b:54044.0,loc:"ห้องM&Eพื้นที่ผู้เช่าT2โซนA,B"},
-  {u:"2004",t:"Empty",tw:"T2",fl:"20",m:"8399953",ct:1,b:73.0,loc:"ห้องM&Eพื้นที่ผู้เช่าT2โซนA,B"},
-  {u:"2005",t:"ZTE (Thailand) Co., Ltd.",tw:"T3",fl:"20",m:"8398053",ct:1,b:27073.0,loc:"ชาร์ปไฟT3"},
-  {u:"2006",t:"ZTE (Thailand) Co., Ltd.",tw:"T3",fl:"20",m:"8398050",ct:1,b:53332.0,loc:"ชาร์ปไฟT3"},
-  {u:"2007",t:"ZTE (Thailand) Co., Ltd.",tw:"T3",fl:"20",m:"8359844",ct:1,b:7147.0,loc:"ชาร์ปไฟT3"},
-  {u:"2008",t:"ZTE (Thailand) Co., Ltd.",tw:"T3",fl:"20",m:"8360950",ct:1,b:5434.0,loc:"ชาร์ปไฟT3"},
-  {u:"2009",t:"Empty",tw:"T2",fl:"20",m:"8423128",ct:1,b:17426.0,loc:"ห้องM&Eพื้นที่ผู้เช่าT2โซนC,D"},
-  {u:"2010",t:"Empty",tw:"T2",fl:"20",m:"8418152",ct:1,b:42067.0,loc:"ห้องM&Eพื้นที่ผู้เช่าT2โซนC,D"},
-  {u:"2011",t:"Bluebik Group Public Company Limited",tw:"T1",fl:"20",m:"8431198",ct:1,b:70819.0,loc:"ห้องM&Eพื้นที่ผู้เช่าโซนC,D"},
-  {u:"2012",t:"Bluebik Group Public Company Limited",tw:"T1",fl:"20",m:"8418136",ct:1,b:96554.0,loc:"ห้องM&Eพื้นที่ผู้เช่าโซนC,D"},
-  {u:"2101",t:"Thai Samsung Electronics Co., Ltd.",tw:"T1",fl:"21",m:"A291-7010512-JN",ct:1,b:34101.0,loc:"ห้องชาร์ปไฟT1"},
-  {u:"2102",t:"Empty",tw:"T1",fl:"21",m:"8374339",ct:1,b:28761.0,loc:"ห้องชาร์ปไฟT1"},
-  {u:"2103-4",t:"SM-Cyclo (Thailand) Co., Ltd.",tw:"T2",fl:"21",m:"8777304",ct:20,b:581.0,loc:"ห้องM&Eทาวเวอร์2CD"},
-  {u:"2105",t:"ZTE (Thailand) Co., Ltd.",tw:"T2",fl:"21",m:"8777558",ct:20,b:180.4,loc:"ห้องM&Eพื้นที่ผู้เช่าT2โซนA,B"},
-  {u:"2106",t:"ZTE (Thailand) Co., Ltd.",tw:"T3",fl:"21",m:"8360668",ct:1,b:72207.0,loc:"ห้องชาร์ปไฟT3"},
-  {u:"2107",t:"ZTE (Thailand) Co., Ltd.",tw:"T3",fl:"21",m:"8353773",ct:1,b:80523.0,loc:"ห้องชาร์ปไฟT3"},
-  {u:"2108",t:"Axis Consultants (Thailand) Ltd.",tw:"T3",fl:"21",m:"8360674",ct:1,b:89604.0,loc:"ห้องชาร์ปไฟT3"},
-  {u:"2109",t:"ZTE (Thailand) Co., Ltd.",tw:"T3",fl:"21",m:"8398035",ct:1,b:7792.0,loc:"ห้องชาร์ปไฟT3"},
-  {u:"2110",t:"Doctor Anywhere (Thailand) Co., Ltd.",tw:"T2",fl:"21",m:"8777536",ct:20,b:1677.3,loc:"ห้องM&Eพื้นที่ผู้เช่าT2โซนC,D"},
-  {u:"2111",t:"Empty",tw:"T2",fl:"21",m:"8777548",ct:20,b:415.7,loc:"ห้องM&Eพื้นที่ผู้เช่าT2โซนC,D"},
-  {u:"2112",t:"Empty",tw:"T2",fl:"21",m:"8389365",ct:20,b:9234.7,loc:"ห้องM&Eพื้นที่ผู้เช่าT2โซนC,D"},
-  {u:"2113",t:"Thai Samsung Electronics Co., Ltd.",tw:"T1",fl:"21",m:"8374266",ct:1,b:69598.0,loc:"ห้องชาร์ปไฟT1"},
-  {u:"2114",t:"Thai Samsung Electronics Co., Ltd.",tw:"T1",fl:"21",m:"8374326",ct:1,b:87028.0,loc:"ห้องชาร์ปไฟT1"},
-  {u:"2201 (9536914)",t:"Dell Corporation (Thailand) Co., Ltd.",tw:"T1",fl:"22",m:"9536914",ct:1,b:7146.6,loc:"ห้องชาร์ปไฟT1"},
-  {u:"2201 (8379901)",t:"Dell Corporation (Thailand) Co., Ltd.",tw:"T1",fl:"22",m:"8379901",ct:1,b:75719.0,loc:"ชาร์ปไฟT1"},
-  {u:"2202",t:"Dell Corporation (Thailand) Co., Ltd.",tw:"T1",fl:"22",m:"8379969",ct:1,b:25607.0,loc:"ห้องชาร์ปไฟT1"},
-  {u:"2203",t:"Pico Engineering (Thailand) Co., Ltd.",tw:"T2",fl:"22",m:"A261-6012641-AV",ct:30,b:3968.5,loc:"ห้องM&Eพื้นที่ผู้เช่าT2โซนA,B"},
-  {u:"2203-5",t:"Empty",tw:"T2",fl:"22",m:"8389430",ct:30,b:6966.2,loc:"ชาร์ปไฟT2"},
-  {u:"2204",t:"HAPPY LAND AND HOUSE GROUP LIMITED",tw:"T2",fl:"22",m:"8379930",ct:1,b:29930.0,loc:"ห้องM&Eพื้นที่ผู้เช่าT2โซนA,B"},
-  {u:"2205",t:"Aberle Automotive (Thailand) Co., Ltd.",tw:"T2",fl:"22",m:"9864709",ct:1,b:61381.0,loc:"ห้องM&Eพื้นที่ผู้เช่าT2โซนA,B"},
-  {u:"2206",t:"Sharing",tw:"T3",fl:"22",m:"8398079",ct:1,b:37276.0,loc:"ชาร์ปไฟT3"},
-  {u:"2207",t:"VICTORY INTERTRADE COMPANY LIMITED",tw:"T3",fl:"22",m:"8360592",ct:1,b:57215.0,loc:"ชาร์ปไฟT3"},
-  {u:"2208",t:"Forvis Mazars (Thailand) Ltd.",tw:"T3",fl:"22",m:"8360661",ct:1,b:65787.0,loc:"ชาร์ปไฟT3"},
-  {u:"2209",t:"Forvis Mazars (Thailand) Ltd.",tw:"T3",fl:"22",m:"8359878",ct:1,b:44845.0,loc:"ชาร์ปไฟT3"},
-  {u:"2210",t:"Bunge Thailand Limited",tw:"T2",fl:"22",m:"8376122",ct:30,b:9150.3,loc:"ห้องM&Eพื้นที่ผู้เช่าT2โซนC,D"},
-  {u:"2211",t:"Empty",tw:"T2",fl:"22",m:"8371725",ct:20,b:6097.6,loc:"ห้องM&Eพื้นที่ผู้เช่าT2โซนC,D"},
-  {u:"2210-12",t:"Empty",tw:"T2",fl:"22",m:"8371758",ct:30,b:9511.6,loc:"ชาร์ปไฟT2"},
-  {u:"2212",t:"Empty",tw:"T2",fl:"22",m:"A291-7000379-MX",ct:1,b:24943.0,loc:"ชาร์ปไฟT2"},
-  {u:"2213 (8418704)",t:"Empty",tw:"T1",fl:"22",m:"8418704",ct:1,b:26511.0,loc:"ห้องชาร์ปไฟT1"},
-  {u:"2213 (8983728)",t:"Dell Corporation (Thailand) Co., Ltd.",tw:"T1",fl:"22",m:"8983728",ct:1,b:1308.6,loc:"ชาร์ปไฟT1"},
-  {u:"2214",t:"Dell Corporation (Thailand) Co., Ltd.",tw:"T1",fl:"22",m:"8379963",ct:1,b:14168.0,loc:"ห้องชาร์ปไฟT1"},
-  {u:"2301",t:"Thai Shimizu Co.,Ltd.",tw:"T1",fl:"23",m:"8374327",ct:1,b:24555.0,loc:"ห้องชาร์ปไฟT1"},
-  {u:"2302",t:"Empty",tw:"T1",fl:"23",m:"8379923",ct:1,b:58234.0,loc:"ห้องชาร์ปไฟT1"},
-  {u:"2303",t:"Food Company HK Procurement PTY Limited",tw:"T2",fl:"23",m:"8418110",ct:1,b:59351.0,loc:"ห้องM&Eพื้นที่ผู้เช่าT2โซนA,B"},
-  {u:"2303 (มิเตอร์เทียบ)",t:"มิเตอร์เทียบ บ.Food com",tw:"T2",fl:"23",m:"8377733",ct:1,b:6727.8,loc:"ห้องM&Eพื้นที่ผู้เช่าT2โซนA,B"},
-  {u:"2303-4",t:"Sharing (China Arts)",tw:"T2",fl:"23",m:"8423092",ct:1,b:50906.0,loc:"ห้องM&Eพื้นที่ผู้เช่าT2โซนA,B"},
-  {u:"2304",t:"China Arts Logistics",tw:"T2",fl:"23",m:"8329116",ct:1,b:97900.0,loc:"ห้องM&Eพื้นที่ผู้เช่าT2โซนA,B"},
-  {u:"2305",t:"Sol Wellness Co., Ltd.",tw:"T2",fl:"23",m:"8418190",ct:1,b:45695.0,loc:"ห้องM&Eพื้นที่ผู้เช่าT2โซนA,B"},
-  {u:"2306",t:"Boyaa Interactive (Thailand) Limited",tw:"T3",fl:"23",m:"8398076",ct:1,b:35611.0,loc:"ชาร์ปไฟT3"},
-  {u:"2307",t:"Empty",tw:"T3",fl:"23",m:"8360998",ct:1,b:11704.0,loc:"ชาร์ปไฟT3"},
-  {u:"2308",t:"Empty",tw:"T3",fl:"23",m:"8398015",ct:1,b:98773.0,loc:"ชาร์ปไฟT3"},
-  {u:"2309",t:"KG Information Systems Co., Ltd.",tw:"T3",fl:"23",m:"8358704",ct:1,b:2829.0,loc:"ชาร์ปไฟT3"},
-  {u:"2310",t:"Australian-Thai Chamber of Commerce",tw:"T2",fl:"23",m:"8418254",ct:1,b:88621.0,loc:"ห้องM&Eพื้นที่ผู้เช่าT2โซนC,D"},
-  {u:"2311",t:"Quartic Insurance & Reinsurance Brokers Co.,Ltd.",tw:"T2",fl:"23",m:"8418124",ct:1,b:87398.0,loc:"ห้องM&Eพื้นที่ผู้เช่าT2โซนC,D"},
-  {u:"2311-2",t:"Sharing",tw:"T2",fl:"23",m:"8418153",ct:1,b:8454.0,loc:"ห้องM&Eพื้นที่ผู้เช่าT2โซนC,D"},
-  {u:"2312",t:"Empty",tw:"T2",fl:"23",m:"8418184",ct:1,b:19944.0,loc:"ห้องM&Eพื้นที่ผู้เช่าT2โซนC,D"},
-  {u:"2313",t:"Lotte Chemical (Thailand) Co., Ltd.",tw:"T1",fl:"23",m:"8379892",ct:1,b:32327.0,loc:"ห้องชาร์ปไฟT1"},
-  {u:"2314",t:"Thai Shimizu Co.,Ltd.",tw:"T1",fl:"23",m:"8374301",ct:1,b:99834.0,loc:"ห้องชาร์ปไฟT1"},
-  {u:"2401",t:"Thai Business Center",tw:"T1",fl:"24",m:"8374336",ct:1,b:10490.0,loc:"ห้องชาร์ปไฟT1"},
-  {u:"2402",t:"Prowess Law Ltd.",tw:"T1",fl:"24",m:"8379916",ct:1,b:66689.0,loc:"ห้องชาร์ปไฟT1"},
-  {u:"2403",t:"Empty",tw:"T2",fl:"24",m:"8418173",ct:1,b:36273.0,loc:"ห้องM&Eพื้นที่ผู้เช่าT2โซนA,B"},
-  {u:"2405",t:"Empty",tw:"T2",fl:"24",m:"8418209",ct:1,b:79390.0,loc:"ห้องM&Eพื้นที่ผู้เช่าT2โซนA,B"},
-  {u:"2406",t:"Sharing",tw:"T3",fl:"24",m:"8359736",ct:1,b:75856.0,loc:"ชาร์ปไฟT3"},
-  {u:"2407",t:"Sato Shoji (Thailand) Co., Ltd.",tw:"T3",fl:"24",m:"8398110",ct:1,b:7875.0,loc:"ชาร์ปไฟT3"},
-  {u:"2408",t:"Empty",tw:"T3",fl:"24",m:"8361000",ct:1,b:21786.0,loc:"ชาร์ปไฟT3"},
-  {u:"2409",t:"The Hotel Sukhumvit 50 Co.,Ltd.",tw:"T3",fl:"24",m:"8398094",ct:1,b:54184.0,loc:"ชาร์ปไฟT3"},
-  {u:"2410",t:"CORESTAFF (THAILAND) CO., LTD.",tw:"T2",fl:"24",m:"8329189",ct:1,b:88207.0,loc:"ห้องM&Eพื้นที่ผู้เช่าT2โซนC,D"},
-  {u:"2411",t:"Ngerntunjai Leasing Co.,Ltd",tw:"T2",fl:"24",m:"8431190",ct:1,b:32748.0,loc:"ห้องM&Eพื้นที่ผู้เช่าT2โซนC,D"},
-  {u:"2412 (8396385)",t:"AB World Foods Asia Limited.",tw:"T2",fl:"24",m:"8396385",ct:1,b:59701.0,loc:"ห้องM&Eพื้นที่ผู้เช่าT2โซนC,D"},
-  {u:"2412 (8329134)",t:"AB World Foods Asia Limited.",tw:"T2",fl:"24",m:"8329134",ct:1,b:21177.0,loc:"ชาร์ปไฟT1"},
-  {u:"2413",t:"AB World Foods Asia Limited.",tw:"T1",fl:"24",m:"9842898",ct:1,b:91312.0,loc:"ห้องชาร์ปไฟT1"},
-  {u:"2414",t:"Empty",tw:"T1",fl:"24",m:"9856541",ct:1,b:20998.0,loc:"ห้องชาร์ปไฟT1"},
-  {u:"2501",t:"Dermora CO.,Ltd.",tw:"T1",fl:"25",m:"8398086",ct:1,b:61799.0,loc:"ห้องชาร์ปไฟT1"},
-  {u:"2502 (8399678)",t:"TCC Hotel Asset Management CO.,Ltd.",tw:"T2",fl:"25",m:"8399678",ct:1,b:44733.0,loc:"ห้องM&Eพื้นที่ผู้เช่าT2โซนA,B"},
-  {u:"2503",t:"Hagiwara Electric (Thailand) Co.,Ltd.",tw:"T2",fl:"25",m:"8329218",ct:1,b:70897.0,loc:"ห้องM&Eพื้นที่ผู้เช่าT2โซนA,B"},
-  {u:"2502 (9705560)",t:"Hagiwara Electric (Thailand) Co.,Ltd.",tw:"T2",fl:"25",m:"9705560",ct:1,b:29534.0,loc:"ห้องM&Eพื้นที่ผู้เช่าT2โซน A,B"},
-  {u:"2504",t:"Vialto Parters (Thailand) Ltd.",tw:"T2",fl:"25",m:"8359901",ct:1,b:99395.0,loc:"ห้องM&Eพื้นที่ผู้เช่าT2โซนA,B"},
-  {u:"2505",t:"Roedl Ltd.",tw:"T3",fl:"25",m:"8360655",ct:1,b:51303.0,loc:"ชาร์ปไฟT3"},
-  {u:"2506",t:"Roedl Ltd.",tw:"T3",fl:"25",m:"8398061",ct:1,b:20272.0,loc:"ชาร์ปไฟT3"},
-  {u:"2507",t:"Sharing",tw:"T3",fl:"25",m:"8398069",ct:1,b:24929.0,loc:"ชาร์ปไฟT3"},
-  {u:"2508",t:"Market Hill",tw:"T3",fl:"25",m:"8359846",ct:1,b:74320.0,loc:"ชาร์ปไฟT3"},
-  {u:"2509",t:"Diehl Defence Holding GmbH",tw:"T2",fl:"25",m:"8418178",ct:1,b:27031.0,loc:"ห้องM&Eพื้นที่ผู้เช่าT2โซนC,D"},
-  {u:"2510",t:"Hisamitsu Pharmaceutical Co.,Inc. Bangkok Representative Office",tw:"T2",fl:"25",m:"8418125",ct:1,b:74590.0,loc:"ห้องM&Eพื้นที่ผู้เช่าT2โซนC,D"},
-  {u:"2510-1",t:"Sharing",tw:"T2",fl:"25",m:"8418139",ct:1,b:46634.0,loc:"ห้องM&Eพื้นที่ผู้เช่าT2โซนC,D"},
-  {u:"2511",t:"CSPC Phama (Thailand)",tw:"T2",fl:"25",m:"8418230",ct:1,b:36872.0,loc:"ห้องM&Eพื้นที่ผู้เช่าT2โซนC,D"},
-  {u:"2512",t:"Empty",tw:"T1",fl:"25",m:"8379937",ct:1,b:71207.0,loc:"ห้องชาร์ปไฟT1"},
-  {u:"2513",t:"Tokio Marine Life Insurance (Thailand) Public Company Limited",tw:"T1",fl:"25",m:"8379926",ct:1,b:8504.0,loc:"ห้องชาร์ปไฟT1"},
-  {u:"2514",t:"Tokio Marine Life Insurance (Thailand) Public Company Limited",tw:"T1",fl:"25",m:"8418696",ct:1,b:45379.0,loc:"ห้องชาร์ปไฟT1"},
-  {u:"2601",t:"Tokio Marine Life Insurance (Thailand) Public Company Limited",tw:"T1",fl:"26",m:"8374313",ct:1,b:98058.0,loc:"ห้องชาร์ปไฟT1"},
-  {u:"2602",t:"Tokio Marine Life Insurance (Thailand) Public Company Limited",tw:"T1",fl:"26",m:"8374334",ct:1,b:39115.0,loc:"ห้องชาร์ปไฟT1"},
-  {u:"2603",t:"Tokio Marine Life Insurance (Thailand) Public Company Limited",tw:"T2",fl:"26",m:"8398102",ct:1,b:81927.0,loc:"ห้องM&Eพื้นที่ผู้เช่าT2โซนA,B"},
-  {u:"2604",t:"Tokio Marine Life Insurance (Thailand) Public Company Limited",tw:"T2",fl:"26",m:"8933794",ct:1,b:64240.0,loc:"ห้องM&Eพื้นที่ผู้เช่าT2โซนA,B"},
-  {u:"2605",t:"WIPRO UNZA (Thailand) Co., Ltd.",tw:"T2",fl:"26",m:"8933787",ct:1,b:37505.0,loc:"ห้องM&Eพื้นที่ผู้เช่าT2โซนA,B"},
-  {u:"2606",t:"SANKEN ELECTRIC (THAILAND) CO.,LTD",tw:"T3",fl:"26",m:"8398081",ct:1,b:85400.0,loc:"ชาร์ปไฟT3"},
-  {u:"2607",t:"Empty",tw:"T3",fl:"26",m:"8337597",ct:1,b:69714.0,loc:"ชาร์ปไฟT3"},
-  {u:"2608",t:"Empty",tw:"T3",fl:"26",m:"8360660",ct:1,b:40421.0,loc:"ชาร์ปไฟT3"},
-  {u:"2609",t:"Kiss Me (Thailand) Co., Ltd.",tw:"T3",fl:"26",m:"8353741",ct:1,b:58201.0,loc:"ชาร์ปไฟT3"},
-  {u:"2610",t:"GROW TIGER CONSULTING CO,.LTD.",tw:"T2",fl:"26",m:"8423077",ct:1,b:68036.0,loc:"ห้องM&Eพื้นที่ผู้เช่าT2โซนC,D"},
-  {u:"2611",t:"Amerimax Advance (Thailand) CO.,Ltd.",tw:"T2",fl:"26",m:"9862706",ct:1,b:60790.0,loc:"ห้องM&Eพื้นที่ผู้เช่าT2โซนC,D"},
-  {u:"2612",t:"Tokio Marine Life Insurance (Thailand) Public Company Limited",tw:"T2",fl:"26",m:"8441375",ct:1,b:68604.0,loc:"ห้องM&Eพื้นที่ผู้เช่าT2โซนC,D"},
-  {u:"2613",t:"Tokio Marine Life Insurance (Thailand) Public Company Limited",tw:"T1",fl:"26",m:"8374324",ct:1,b:19570.0,loc:"ห้องชาร์ปไฟT1"},
-  {u:"2614",t:"Tokio Marine Life Insurance (Thailand) Public Company Limited",tw:"T1",fl:"26",m:"8379932",ct:1,b:51959.0,loc:"ห้องชาร์ปไฟT1"},
-  {u:"2701",t:"Bangkok Sathorn Centre Company Limited",tw:"T1",fl:"27",m:"8374332",ct:1,b:34892.0,loc:"ห้องชาร์ปไฟT1"},
-  {u:"2702",t:"Bangkok Sathorn Centre Company Limited",tw:"T1",fl:"27",m:"8379896",ct:1,b:74.0,loc:"ห้องชาร์ปไฟT1"},
-  {u:"2703",t:"HAPPY LAND AND HOUSE GROUP LIMITED",tw:"T2",fl:"27",m:"8423134",ct:1,b:90407.0,loc:"ห้องM&Eพื้นที่ผู้เช่าT2โซนA,B"},
-  {u:"2705",t:"CMK Corporation (Thailand) Co., Ltd.",tw:"T2",fl:"27",m:"8418135",ct:1,b:39361.0,loc:"ห้องM&Eพื้นที่ผู้เช่าT2โซนA,B"},
-  {u:"2706",t:"Empty",tw:"T3",fl:"27",m:"8398059",ct:1,b:87201.0,loc:"ชาร์ปไฟT3"},
-  {u:"2707",t:"Empty",tw:"T3",fl:"27",m:"8398078",ct:1,b:47795.0,loc:"ชาร์ปไฟT3"},
-  {u:"2708",t:"Empty",tw:"T3",fl:"27",m:"8398068",ct:1,b:93528.0,loc:"ชาร์ปไฟT3"},
-  {u:"2709/1",t:"Sharing",tw:"T3",fl:"27",m:"8398063",ct:1,b:97209.0,loc:"ชาร์ปไฟT3"},
-  {u:"2710",t:"Bodana Biotechnology CO.,Ltd.",tw:"T2",fl:"27",m:"8423048",ct:1,b:38261.0,loc:"ห้องM&Eพื้นที่ผู้เช่าT2โซนC,D"},
-  {u:"2712",t:"Bangkok Sathorn Centre Company Limited",tw:"T2",fl:"27",m:"8418142",ct:1,b:97200.0,loc:"ห้องM&Eพื้นที่ผู้เช่าT2โซนC,D"},
-  {u:"2713",t:"Bangkok Sathorn Centre Company Limited",tw:"T1",fl:"27",m:"8379895",ct:1,b:10866.0,loc:"ห้องชาร์ปไฟT1"},
-  {u:"2714",t:"Bangkok Sathorn Centre Company Limited",tw:"T1",fl:"27",m:"8374276",ct:1,b:89528.0,loc:"ห้องชาร์ปไฟT1"},
-  {u:"2801",t:"Sharing",tw:"T1",fl:"28",m:"8374267",ct:1,b:68434.0,loc:"ห้องชาร์ปไฟT1"},
-  {u:"2802",t:"IPG Advertising (Thailand) Limited Mediabrands",tw:"T1",fl:"28",m:"8374341",ct:1,b:75817.0,loc:"ห้องชาร์ปไฟT1"},
-  {u:"2803-5",t:"IPG Advertising (Thailand) Limited Mediabrands",tw:"T2",fl:"28",m:"8371624",ct:30,b:7483.9,loc:"ชาร์ปไฟT2"},
-  {u:"2806",t:"IPG Advertising (Thailand) Limited Mediabrands",tw:"T3",fl:"28",m:"8361019",ct:1,b:96806.0,loc:"ชาร์ปไฟT3"},
-  {u:"2807",t:"Empty",tw:"T3",fl:"28",m:"8398071",ct:1,b:35342.0,loc:"ชาร์ปไฟT3"},
-  {u:"2808",t:"IPG Advertising (Thailand) Limited Mediabrands",tw:"T3",fl:"28",m:"8398073",ct:1,b:41498.0,loc:"ชาร์ปไฟT3"},
-  {u:"2809",t:"IPG Advertising (Thailand) Limited Mediabrands",tw:"T3",fl:"28",m:"8360658",ct:1,b:69776.0,loc:"ชาร์ปไฟT3"},
-  {u:"2810-12",t:"IPG Advertising (Thailand) Limited Mediabrands",tw:"T2",fl:"28",m:"8389617",ct:20,b:5144.1,loc:"ชาร์ปไฟT2"},
-  {u:"2813",t:"Empty",tw:"T1",fl:"28",m:"8374288",ct:1,b:7278.0,loc:"ห้องชาร์ปไฟ"},
-  {u:"2814",t:"Empty",tw:"T1",fl:"28",m:"8379945",ct:1,b:88819.0,loc:"ห้องชาร์ปไฟT1"},
-  {u:"2901",t:"Storage Area (STR-Main)",tw:"T1",fl:"29",m:"8379898",ct:1,b:1.0,loc:"ห้องชาร์ปไฟ Tower1"},
-  {u:"2902",t:"Storage Area (STR-Main)",tw:"T1",fl:"29",m:"8379934",ct:1,b:91022.0,loc:"ห้องชาร์ปไฟ Tower1"},
-  {u:"2903",t:"Empty",tw:"T2",fl:"29",m:"A261-6014609-ME",ct:20,b:2926.0,loc:"ห้อง M&E Tower2"},
-  {u:"2904",t:"Empty",tw:"T2",fl:"29",m:"SDB29201B",ct:20,b:20471.0,loc:"ห้อง M&E Tower2"},
-  {u:"2905",t:"E.Sun Commercial Bank, Ltd.",tw:"T3",fl:"29",m:"8360667",ct:1,b:77820.0,loc:"ห้องชาร์ปไฟ Tower3"},
-  {u:"2906",t:"Lubrizol (Thailand) Co.,Ltd.",tw:"T3",fl:"29",m:"A291-6004036-ZT",ct:1,b:51576.0,loc:"ห้องชาร์ปไฟ Tower3"},
-  {u:"2907",t:"Marubun Arrow (Thailand) Co., Ltd.",tw:"T3",fl:"29",m:"8360992",ct:1,b:23948.0,loc:"ห้องชาร์ปไฟ Tower3"},
-  {u:"2908",t:"Empty",tw:"T3",fl:"29",m:"8360988",ct:1,b:11034.0,loc:"ห้องชาร์ปไฟ Tower3"},
-  {u:"2909",t:"Empty",tw:"T2",fl:"29",m:"DP 29202B",ct:20,b:26244.0,loc:"ห้อง M&E Tower2"},
-  {u:"2910",t:"Empty",tw:"T2",fl:"29",m:"DP-29202A",ct:20,b:26096.0,loc:"ห้อง M&E Tower2"},
-  {u:"2911",t:"Storage Area (STR-Main)",tw:"T1",fl:"29",m:"8374338",ct:1,b:52958.0,loc:"ห้องชาร์ปไฟ Tower1"},
-  {u:"2912",t:"Storage Area (STR-Main)",tw:"T1",fl:"29",m:"8379931",ct:1,b:62.0,loc:"ห้องชาร์ปไฟ Tower1"},
-  {u:"fl.21 R2(CDU21-01)",t:"Thai Samsung Electronics Co., Ltd.",tw:"T1",fl:"R2",m:"9843437",ct:1,b:66146.0,loc:"R2 Tower1"},
-  {u:"fl.21 R2(CDU21-02)",t:"Thai Samsung Electronics Co., Ltd.",tw:"T1",fl:"R2",m:"9794908",ct:1,b:42291.0,loc:"R2 Tower1"},
-  {u:"R36-37",t:"Samsung E&A (Thailand) Co., Ltd",tw:"T1",fl:"R2",m:"9843480",ct:1,b:49964.0,loc:"R2 Tower1"},
-  {u:"Fl.R2-2-1",t:"Comparing Meter",tw:"T1",fl:"R2",m:"9139320",ct:100,b:9109.0,loc:"R2 ห้องหม้อแปลง 2/1"},
-  {u:"Fl.R2-2-2",t:"Comparing Meter",tw:"T1",fl:"R2",m:"9143393",ct:100,b:7443.1,loc:"R2 ห้องหม้อแปลง 2/1"},
-  {u:"BTS-FAX(Fl.R2-3-1)",t:"Fax Lite Co,Ltd.(AIS)",tw:"T2",fl:"R2",m:"8892642",ct:1,b:3308.1,loc:"R2 ห้องพัดลมEFPข้างห้องหม้อแปลง 2/2"},
-  {u:"Fl.R2 (A281-7000234-HN)",t:"Fax Lite Co,Ltd.(AIS)",tw:"T1",fl:"R2",m:"A281-7000234-HN",ct:1,b:14005.0,loc:"R2 Tower1 ที่เก็บรถเข็นสตาร์ลิ้งค์"},
-  {u:"Fl.R2 (A281-7000215-QM)",t:"Fax Lite Co,Ltd.(AIS)",tw:"T3",fl:"R2",m:"A281-7000215-QM",ct:1,b:92117.0,loc:"R2 ห้องปั๊ม CWP Tower3"},
-  {u:"Fl.R2-2-4",t:"T.C.C. Technology Co., Ltd.",tw:"T3",fl:"R2",m:"8761542",ct:1,b:38207.0,loc:"R2 Tower3 หน้าพัดลม FF-2N-M"},
-  {u:"3001",t:"Empty",tw:"T1",fl:"30",m:"8374330",ct:1,b:13924.0,loc:"ห้องชาร์ปไฟ Tower1"},
-  {u:"3002",t:"Empty",tw:"T1",fl:"30",m:"9226714",ct:40,b:899.4,loc:"ห้อง AHU Tower1"},
-  {u:"3003",t:"Infinite Leasing (Thailand) Co. Ltd.",tw:"T1",fl:"30",m:"8389294",ct:20,b:6361.5,loc:"ห้อง M&E 3004"},
-  {u:"3004",t:"Empty",tw:"T2",fl:"30",m:"DP 30201B",ct:20,b:17311.0,loc:"ห้อง M&E 3004"},
-  {u:"3005",t:"Empty",tw:"T3",fl:"30",m:"8361004",ct:1,b:27745.0,loc:"ชาร์ทไฟT3"},
-  {u:"3006",t:"Thyssenkrupp Uhde (Thailand) Ltd.",tw:"T3",fl:"30",m:"8398065",ct:1,b:8645.0,loc:"ชาร์ปไฟ Tower3"},
-  {u:"3007",t:"Thyssenkrupp Uhde (Thailand) Ltd.",tw:"T3",fl:"30",m:"8398090",ct:1,b:74925.0,loc:"ชาร์ปไฟ Tower3"},
-  {u:"3008",t:"Empty",tw:"T3",fl:"30",m:"8360650",ct:1,b:36755.0,loc:"ชาร์ปไฟ Tower3"},
-  {u:"3009",t:"Empty",tw:"T2",fl:"30",m:"DP 30202B",ct:20,b:18104.0,loc:"ห้อง AHU tower2 เข้าห้องน้ำชาย"},
-  {u:"3010",t:"Empty",tw:"T2",fl:"30",m:"DP 30202A",ct:20,b:24551.0,loc:"ห้อง AHU tower2 เข้าห้องน้ำชาย"},
-  {u:"3011",t:"Empty",tw:"T1",fl:"30",m:"8379942",ct:1,b:73532.0,loc:"ห้องชาร์ปไฟ Tower1"},
-  {u:"3012",t:"Sharing",tw:"T1",fl:"30",m:"8379955",ct:1,b:67326.0,loc:"ห้องชาร์ปไฟ Tower1"},
-  {u:"3101",t:"Thai NS Solutions Co., Ltd.",tw:"T1",fl:"31",m:"8418709",ct:1,b:86091.0,loc:"ห้องชาร์ปไฟ Tower1"},
-  {u:"3102",t:"Empty",tw:"T1",fl:"31",m:"8374306",ct:1,b:9227.0,loc:"ห้องชาร์ปไฟ Tower1"},
-  {u:"3103-4",t:"Invitrace CO.,Ltd.",tw:"T2",fl:"31",m:"8377724",ct:30,b:9739.0,loc:"ห้องชาร์ปไฟ Tower2"},
-  {u:"3105",t:"Invitrace CO.,Ltd.",tw:"T3",fl:"31",m:"8398017",ct:1,b:77531.0,loc:"ห้องชาร์ปไฟ Tower3"},
-  {u:"3106",t:"Invitrace CO.,Ltd.",tw:"T3",fl:"31",m:"8398023",ct:1,b:19616.0,loc:"ห้องชาร์ปไฟ Tower3"},
-  {u:"3107",t:"Invitrace CO.,Ltd.",tw:"T3",fl:"31",m:"8398022",ct:1,b:83875.0,loc:"ห้องชาร์ปไฟ Tower3"},
-  {u:"3108",t:"Invitrace CO.,Ltd.",tw:"T3",fl:"31",m:"8360977",ct:1,b:60107.0,loc:"ห้องชาร์ปไฟ Tower3"},
-  {u:"3109-10",t:"ZCS Co.,Ltd.",tw:"T2",fl:"31",m:"8371810",ct:30,b:5495.9,loc:"ห้องชาร์ปไฟ Tower2"},
-  {u:"3111",t:"Rumruayteesud CO.,Ltd. (Holiday Pastry)",tw:"T1",fl:"31",m:"8379939",ct:1,b:38965.0,loc:"ห้องชาร์ปไฟ Tower1"},
-  {u:"3112",t:"Thai NS Solutions Co., Ltd.",tw:"T1",fl:"31",m:"8379908",ct:1,b:64394.0,loc:"ห้องชาร์ปไฟ Tower1"},
-  {u:"3201",t:"Krung Thai Asset Management PCL.",tw:"T1",fl:"32",m:"8374317",ct:1,b:70883.0,loc:"ห้องชาร์ปไฟ Tower1"},
-  {u:"3202",t:"Krung Thai Asset Management PCL.",tw:"T1",fl:"32",m:"8418685",ct:1,b:88067.0,loc:"ห้องชาร์ปไฟ Tower1"},
-  {u:"3210 T1(Server)",t:"Krung Thai Asset Management PCL.",tw:"T1",fl:"32",m:"Main CB 300A",ct:1,b:969835.0,loc:"ห้องชาร์ปไฟ Tower1"},
-  {u:"3203-4",t:"Sharing",tw:"T2",fl:"32",m:"8371715",ct:30,b:8757.6,loc:"ห้องชาร์ปไฟ Tower2"},
-  {u:"3205",t:"Empty",tw:"T3",fl:"32",m:"8398072",ct:1,b:13481.0,loc:"ห้องชาร์ปไฟ Tower3"},
-  {u:"3206",t:"Mitsubishi Corporation LT (Thailand) CO.,Ltd.",tw:"T3",fl:"32",m:"8398047",ct:1,b:9476.0,loc:"ห้องชาร์ปไฟ Tower3"},
-  {u:"3207",t:"Mitsubishi Corporation LT (Thailand) CO.,Ltd.",tw:"T3",fl:"32",m:"8398029",ct:1,b:51396.0,loc:"ห้องชาร์ปไฟ Tower3"},
-  {u:"3208",t:"Empty",tw:"T3",fl:"32",m:"8398057",ct:1,b:71212.0,loc:"ห้องชาร์ปไฟ Tower3"},
-  {u:"3209-10",t:"Empty",tw:"T2",fl:"32",m:"8379602",ct:30,b:9388.8,loc:"ห้องชาร์ปไฟ Tower2"},
-  {u:"3211",t:"Krung Thai Asset Management PCL.",tw:"T1",fl:"32",m:"8379891",ct:1,b:26998.0,loc:"ห้องชาร์ปไฟ Tower1"},
-  {u:"3212",t:"Krung Thai Asset Management PCL.",tw:"T1",fl:"32",m:"8379913",ct:1,b:25943.0,loc:"ห้องชาร์ปไฟ Tower1"},
-  {u:"3301-T1",t:"Thai Samsung Electronics Co., Ltd.",tw:"T1",fl:"33",m:"A291-6014933-ME",ct:1,b:350.0,loc:"ชาร์ปไฟ Tower1"},
-  {u:"3302",t:"Thai Samsung Electronics Co., Ltd.",tw:"T1",fl:"33",m:"8379941",ct:1,b:35736.0,loc:"ชาร์ปไฟ Tower1"},
-  {u:"3303-4",t:"Thai Samsung Electronics Co., Ltd.",tw:"T2",fl:"33",m:"8389356",ct:30,b:2999.4,loc:"ชาร์ปไฟ Tower2"},
-  {u:"3305",t:"Thai Samsung Electronics Co., Ltd.",tw:"T3",fl:"33",m:"8359847",ct:1,b:19226.0,loc:"ชาร์ปไฟ Tower3"},
-  {u:"3306",t:"Thai Samsung Electronics Co., Ltd.",tw:"T3",fl:"33",m:"8359727",ct:1,b:18161.0,loc:"ชาร์ปไฟ Tower3"},
-  {u:"3307",t:"Thai Samsung Electronics Co., Ltd.",tw:"T3",fl:"33",m:"8360662",ct:1,b:40568.0,loc:"ชาร์ปไฟ Tower3"},
-  {u:"3308",t:"Thai Samsung Electronics Co., Ltd.",tw:"T3",fl:"33",m:"8398024",ct:1,b:73801.0,loc:"ชาร์ปไฟ Tower3"},
-  {u:"3309-10",t:"Thai Samsung Electronics Co., Ltd.",tw:"T2",fl:"33",m:"8389384",ct:30,b:233.2,loc:"ชาร์ปไฟ Tower2"},
-  {u:"3311",t:"Thai Samsung Electronics Co., Ltd.",tw:"T1",fl:"33",m:"8379888",ct:1,b:6390.0,loc:"ชาร์ปไฟ Tower1"},
-  {u:"3312",t:"Thai Samsung Electronics Co., Ltd.",tw:"T1",fl:"33",m:"8374321",ct:1,b:11535.0,loc:"ชาร์ปไฟ Tower1"},
-  {u:"3401",t:"Thai Samsung Electronics Co., Ltd.",tw:"T1",fl:"34",m:"8379925",ct:1,b:44480.0,loc:"ชาร์ปไฟ Tower1"},
-  {u:"3402",t:"Thai Samsung Electronics Co., Ltd.",tw:"T1",fl:"34",m:"8379944",ct:1,b:70612.0,loc:"ชาร์ปไฟ Tower1"},
-  {u:"3403-4",t:"Thai Samsung Electronics Co., Ltd.",tw:"T2",fl:"34",m:"8379631",ct:30,b:7107.9,loc:"ชาร์ปไฟ Tower2"},
-  {u:"3405",t:"Thai Samsung Electronics Co., Ltd.",tw:"T3",fl:"34",m:"8398031",ct:1,b:72143.0,loc:"ชาร์ปไฟ Tower3"},
-  {u:"3406",t:"Thai Samsung Electronics Co., Ltd.",tw:"T3",fl:"34",m:"8398026",ct:1,b:94783.0,loc:"ชาร์ปไฟ Tower3"},
-  {u:"3407",t:"Thai Samsung Electronics Co., Ltd.",tw:"T3",fl:"34",m:"8398052",ct:1,b:48578.0,loc:"ชาร์ปไฟ Tower3"},
-  {u:"3408",t:"Thai Samsung Electronics Co., Ltd.",tw:"T3",fl:"34",m:"8360665",ct:1,b:40112.0,loc:"ชาร์ปไฟ Tower3"},
-  {u:"3409-10",t:"Thai Samsung Electronics Co., Ltd.",tw:"T2",fl:"34",m:"8371718",ct:30,b:2202.7,loc:"ชาร์ปไฟ Tower2"},
-  {u:"3411",t:"Thai Samsung Electronics Co., Ltd.",tw:"T1",fl:"34",m:"8379967",ct:1,b:46155.0,loc:"ชาร์ปไฟ Tower1"},
-  {u:"3412",t:"Thai Samsung Electronics Co., Ltd.",tw:"T1",fl:"34",m:"8379935",ct:1,b:74043.0,loc:"ชาร์ปไฟ Tower1"},
-  {u:"3501",t:"Skillane Technology Public Company Limited.",tw:"T1",fl:"35",m:"8379980",ct:1,b:10347.0,loc:"ชาร์ปไฟ Tower1"},
-  {u:"3502",t:"Thai Samsung Electronics Co., Ltd.",tw:"T1",fl:"35",m:"8379889",ct:1,b:43302.0,loc:"ชาร์ปไฟ Tower1"},
-  {u:"3503(3503-4)",t:"Thai Samsung Electronics Co., Ltd.",tw:"T2",fl:"35",m:"A261-7007027-GY",ct:30,b:1089.6,loc:"ชาร์ปไฟ Tower2"},
-  {u:"3505",t:"Musashi Asia Co., Ltd.",tw:"T3",fl:"35",m:"8360680",ct:1,b:56696.0,loc:"ชาร์ปไฟ Tower3"},
-  {u:"3506",t:"Sunshine Solution Service Co.,Ltd.",tw:"T3",fl:"35",m:"8360663",ct:1,b:3571.0,loc:"ชาร์ปไฟ Tower3"},
-  {u:"3507",t:"Socket 9 Co., Ltd.",tw:"T3",fl:"35",m:"8398092",ct:1,b:54312.0,loc:"ชาร์ปไฟ Tower3"},
-  {u:"3508",t:"Socket 9 Co., Ltd.",tw:"T3",fl:"35",m:"8398080",ct:1,b:74272.0,loc:"ชาร์ปไฟ Tower3"},
-  {u:"3509-10",t:"Empty",tw:"T2",fl:"35",m:"8371790",ct:30,b:4740.8,loc:"ชาร์ปไฟ Tower2"},
-  {u:"3509",t:"Skyworth Renewable Energy (Thailand) Co.,Ltd.",tw:"T2",fl:"35",m:"8434770",ct:1,b:1756.0,loc:"ห้อง AHU Tower2 เข้าห้องน้ำชาย"},
-  {u:"3510",t:"Empty",tw:"T2",fl:"35",m:"8441357",ct:1,b:38650.0,loc:"ห้อง AHU tower2 เข้าห้องน้ำชาย"},
-  {u:"3512",t:"Skillane Technology Public Company Limited.",tw:"T1",fl:"35",m:"8379940",ct:1,b:51238.0,loc:"ชาร์ปไฟ Tower1"},
-  {u:"3511",t:"Empty",tw:"T1",fl:"35",m:"8374323",ct:1,b:1105.0,loc:"ชาร์ปไฟ Tower1"},
-  {u:"3601",t:"B Media And Accessories Co., Ltd.",tw:"T1",fl:"36",m:"8374265",ct:1,b:52826.0,loc:"ชาร์ปไฟ Tower1"},
-  {u:"3602",t:"B Media And Accessories Co., Ltd.",tw:"T1",fl:"36",m:"8379936",ct:1,b:85315.0,loc:"ชาร์ปไฟ Tower1"},
-  {u:"3603-4",t:"B Media And Accessories Co., Ltd.",tw:"T2",fl:"36",m:"8377740",ct:30,b:7246.8,loc:"ชาร์ปไฟ Tower2"},
-  {u:"3605",t:"Empty",tw:"T3",fl:"36",m:"8398021",ct:1,b:22820.0,loc:"ชาร์ปไฟ Tower3"},
-  {u:"3606",t:"Empty",tw:"T3",fl:"36",m:"8398041",ct:1,b:89571.0,loc:"ชาร์ปไฟ Tower3"},
-  {u:"3607",t:"Empty",tw:"T3",fl:"36",m:"8398077",ct:1,b:59144.0,loc:"ชาร์ปไฟ Tower3"},
-  {u:"3608",t:"Empty",tw:"T3",fl:"36",m:"8361017",ct:1,b:40395.0,loc:"ชาร์ปไฟ Tower3"},
-  {u:"3609-10",t:"B Media And Accessories Co., Ltd.",tw:"T2",fl:"36",m:"8371504",ct:30,b:2969.2,loc:"ชาร์ปไฟ Tower2"},
-  {u:"3611",t:"B Media And Accessories Co., Ltd.",tw:"T1",fl:"36",m:"8374325",ct:1,b:7110.0,loc:"ชาร์ปไฟ Tower1"},
-  {u:"3612",t:"B Media And Accessories Co., Ltd.",tw:"T1",fl:"36",m:"8379947",ct:1,b:18888.0,loc:"ชาร์ปไฟ Tower1"},
-  {u:"3701",t:"Samsung E&A (Thailand) Co., Ltd",tw:"T1",fl:"37",m:"8379909",ct:1,b:37012.0,loc:"ชาร์ปไฟ Tower1"},
-  {u:"3701/2",t:"Marubeni-Itochu Steel Pte Ltd,Bangkok Branch",tw:"T1",fl:"37",m:"9160437",ct:1,b:15471.0,loc:"ห้อง AHU Tower1"},
-  {u:"3702",t:"Samsung E&A (Thailand) Co., Ltd",tw:"T1",fl:"37",m:"8418689",ct:1,b:50940.0,loc:"ชาร์ปไฟ Tower1"},
-  {u:"3703-4",t:"Samsung E&A (Thailand) Co., Ltd",tw:"T2",fl:"37",m:"8371631",ct:30,b:98308.0,loc:"ชาร์ปไฟ Tower2"},
-  {u:"3705",t:"Samsung E&A (Thailand) Co., Ltd",tw:"T3",fl:"37",m:"8360686",ct:1,b:61629.0,loc:"ชาร์ปไฟ Tower3"},
-  {u:"3706",t:"Samsung E&A (Thailand) Co., Ltd",tw:"T3",fl:"37",m:"8398087",ct:1,b:80483.0,loc:"ชาร์ปไฟ Tower3"},
-  {u:"3707",t:"Samsung E&A (Thailand) Co., Ltd",tw:"T3",fl:"37",m:"8360685",ct:1,b:90339.0,loc:"ชาร์ปไฟ Tower3"},
-  {u:"3708",t:"Samsung E&A (Thailand) Co., Ltd",tw:"T3",fl:"37",m:"8398044",ct:1,b:52709.0,loc:"ชาร์ปไฟ Tower3"},
-  {u:"3709-10",t:"Samsung E&A (Thailand) Co., Ltd",tw:"T2",fl:"37",m:"8371756",ct:30,b:1451.5,loc:"ชาร์ปไฟ Tower2"},
-  {u:"3711",t:"MISAP Management Service Co.,Ltd.",tw:"T1",fl:"37",m:"8379921",ct:1,b:18004.0,loc:"ชาร์ปไฟ Tower1"},
-  {u:"3712",t:"Marubeni-Itochu Steel Pte Ltd,Bangkok Branch",tw:"T1",fl:"37",m:"8374296",ct:1,b:79656.0,loc:"ชาร์ปไฟ Tower1"},
-  {u:"3801",t:"Empty",tw:"T1",fl:"38",m:"8418690",ct:1,b:96718.0,loc:"ห้องชาร์ปไฟฟ้าทาวเวอร์ 1"},
-  {u:"3802",t:"Empty",tw:"T1",fl:"38",m:"8379972",ct:1,b:52261.0,loc:"ห้องชาร์ปไฟฟ้าทาวเวอร์ 1"},
-  {u:"3803-5",t:"Empty",tw:"T2",fl:"38",m:"8377743",ct:30,b:326.8,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์2"},
-  {u:"3806",t:"Empty",tw:"T3",fl:"38",m:"8360684",ct:1,b:43427.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์3"},
-  {u:"3807",t:"Empty",tw:"T3",fl:"38",m:"8359872",ct:1,b:66016.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์3"},
-  {u:"3808",t:"Empty",tw:"T3",fl:"38",m:"8360679",ct:1,b:98648.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์3"},
-  {u:"3809",t:"Empty",tw:"T3",fl:"38",m:"8398095",ct:1,b:59373.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์3"},
-  {u:"3810-12",t:"Empty",tw:"T2",fl:"38",m:"8374730",ct:30,b:7830.5,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์2"},
-  {u:"3813",t:"Empty",tw:"T1",fl:"38",m:"8374275",ct:1,b:50721.0,loc:"ห้องชาร์ปไฟฟ้าทาวเวอร์ 1"},
-  {u:"3814",t:"Empty",tw:"T1",fl:"38",m:"8418684",ct:1,b:49633.0,loc:"ห้องชาร์จไฟฟ้าทาวเวอร์ 1"},
-  {u:"3901",t:"Empty",tw:"T1",fl:"39",m:"8374331",ct:1,b:11400.0,loc:"ห้องชาร์จไฟทาวเวอร์ 1"},
-  {u:"3902",t:"Empty",tw:"T1",fl:"39",m:"8374340",ct:1,b:15646.0,loc:"ห้องชาร์ปไฟทาวเวอร์ 1"},
-  {u:"3903 (3901)",t:"Empty",tw:"T2",fl:"39",m:"9840922",ct:1,b:81571.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 2"},
-  {u:"3903-4",t:"Empty (Sharing)",tw:"T2",fl:"39",m:"8371800",ct:30,b:6438.2,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 2"},
-  {u:"3905",t:"Empty",tw:"T3",fl:"39",m:"8398085",ct:1,b:39775.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์3"},
-  {u:"3906",t:"Empty",tw:"T3",fl:"39",m:"8353793",ct:1,b:78432.0,loc:"อยู่ในห้องชาร์ปทาวเวอร์3"},
-  {u:"3907",t:"Empty",tw:"T3",fl:"39",m:"8360641",ct:1,b:82449.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์3"},
-  {u:"3908",t:"Empty",tw:"T3",fl:"39",m:"8398027",ct:1,b:17447.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์3"},
-  {u:"3909-10-1",t:"Sharing",tw:"T2",fl:"39",m:"9833650",ct:30,b:6418.9,loc:"อยู่ในห้องชาร์ปไฟ ทาวเวอร์2"},
-  {u:"3911",t:"Empty",tw:"T1",fl:"39",m:"8374319",ct:1,b:90504.0,loc:"ห้องชาร์ปไฟทาวเวอร์ 1"},
-  {u:"3912",t:"Empty",tw:"T1",fl:"39",m:"8374290",ct:1,b:51259.0,loc:"ห้องชาร์จไฟ tower 1"},
-  {u:"4001",t:"Thai Samsung Electronics Co., Ltd.",tw:"T1",fl:"40",m:"8374274",ct:1,b:71340.0,loc:"ห้องชาร์ปไฟทาวเวอร์ 1"},
-  {u:"4002",t:"Thai Samsung Electronics Co., Ltd.",tw:"T1",fl:"40",m:"8374289",ct:1,b:4935.0,loc:"ห้องชาร์ปไฟทาวเวอร์ 1"},
-  {u:"4003-4",t:"Thai Samsung Electronics Co., Ltd.",tw:"T2",fl:"40",m:"8374656",ct:30,b:5600.1,loc:"อยู่ในห้องชาร์ปไฟ tower 2"},
-  {u:"4005",t:"Thai Samsung Electronics Co., Ltd.",tw:"T3",fl:"40",m:"8494812",ct:1,b:27561.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 3"},
-  {u:"4006",t:"Thai Samsung Electronics Co., Ltd.",tw:"T3",fl:"40",m:"8494830",ct:1,b:22864.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์3"},
-  {u:"4007",t:"Thai Samsung Electronics Co., Ltd.",tw:"T3",fl:"40",m:"8494851",ct:1,b:40300.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์3"},
-  {u:"4008",t:"Thai Samsung Electronics Co., Ltd.",tw:"T3",fl:"40",m:"8494855",ct:1,b:73862.0,loc:"อยู่ในห้องชาร์ปไฟ T.3"},
-  {u:"4009-10",t:"Thai Samsung Electronics Co., Ltd.",tw:"T2",fl:"40",m:"8379632",ct:30,b:4958.9,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 2"},
-  {u:"4011",t:"Thai Samsung Electronics Co., Ltd.",tw:"T1",fl:"40",m:"8379924",ct:1,b:98672.0,loc:"ห้องชาร์จไฟ tower 1"},
-  {u:"4012",t:"Thai Samsung Electronics Co., Ltd.",tw:"T1",fl:"40",m:"8374309",ct:1,b:68170.0,loc:"ห้องชาร์ปไฟทาวเวอร์ 1"},
-  {u:"4101",t:"Empty",tw:"T1",fl:"41",m:"8421086",ct:1,b:37196.0,loc:"ห้องชาร์ปไฟทาวเวอร์ 1"},
-  {u:"4102",t:"Empty",tw:"T1",fl:"41",m:"8421045",ct:1,b:41270.0,loc:"ห้องชาร์จไฟทาวเวอร์ 1"},
-  {u:"4103-4",t:"Empty (Sharing)",tw:"T2",fl:"41",m:"8379590",ct:30,b:2000.7,loc:"อยู่ในห้องเช่าไฟฟ้าทาวเวอร์ 2"},
-  {u:"4102 (SR41-2-1)",t:"Empty",tw:"T2",fl:"41",m:"8549349",ct:50,b:5465.5,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์2"},
-  {u:"4105",t:"Empty",tw:"T3",fl:"41",m:"8359874",ct:1,b:56111.0,loc:"อยู่ในห้องชาร์จไฟทาวเวอร์3"},
-  {u:"4106",t:"AddTech Hub Public Co.,Ltd",tw:"T3",fl:"41",m:"A291-7013410-JN",ct:1,b:79101.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 3"},
-  {u:"4107",t:"AddTech Hub Public Co.,Ltd",tw:"T3",fl:"41",m:"8398025",ct:1,b:43592.0,loc:"อยู่ในห้องชาร์จไฟ tower 3"},
-  {u:"4108",t:"Empty",tw:"T3",fl:"41",m:"8398109",ct:1,b:33323.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 3"},
-  {u:"4102 (server)",t:"Empty",tw:"T3",fl:"41",m:"A261-6012644-TZ",ct:50,b:113.8,loc:"อยู่ในห้องชาร์ปไฟฟ้าทาวเวอร์ 3"},
-  {u:"4109",t:"Empty",tw:"T2",fl:"41",m:"DP-41202B",ct:1,b:18896.0,loc:"อยู่ในห้องเครื่องทั้ง 2 โซน CD"},
-  {u:"4110",t:"Empty",tw:"T2",fl:"41",m:"DP-41202A",ct:20,b:24377.0,loc:"อยู่ในห้องเครื่องโซน CDทาวเวอร์2"},
-  {u:"4109-10",t:"Empty",tw:"T2",fl:"41",m:"8371769",ct:1,b:7562.8,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 2"},
-  {u:"4111",t:"Empty",tw:"T1",fl:"41",m:"8421062",ct:1,b:99486.0,loc:"ห้องชาร์ปไฟทาวเวอร์ 1"},
-  {u:"4112",t:"Empty",tw:"T1",fl:"41",m:"8933795",ct:1,b:44896.0,loc:"ห้องชาร์ปไฟทาวเวอร์ 1"},
-  {u:"4201",t:"Empty",tw:"A",fl:"42",m:"8329186",ct:1,b:72454.0,loc:"อยู่ในห้องชาร์จไฟฟ้าทาวเวอร์ 1"},
-  {u:"4202",t:"Empty",tw:"T1",fl:"42",m:"8359769",ct:1,b:95743.0,loc:"อยู่ในห้องชาร์จไฟ tower 1"},
-  {u:"4203",t:"Cheil (Thailand) Ltd.",tw:"T2",fl:"42",m:"DP-42101A",ct:20,b:40046.0,loc:"ห้องเครื่อง AB"},
-  {u:"4204",t:"Cheil (Thailand) Ltd.",tw:"T2",fl:"42",m:"DP-42101B",ct:20,b:19636.0,loc:"ห้องเครื่อง AB"},
-  {u:"4205",t:"Empty",tw:"A",fl:"42",m:"8549184",ct:1,b:68636.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 3"},
-  {u:"4206",t:"Empty",tw:"B",fl:"42",m:"A291-6004079-OE",ct:1,b:15968.0,loc:"อยู่ห้องชาร์ปทาวเวอร์ 3"},
-  {u:"4207",t:"Cheil (Thailand) Ltd.",tw:"D",fl:"42",m:"8556564",ct:1,b:52390.0,loc:"อยู่ในห้องชาร์จไฟทาวเวอร์ 3"},
-  {u:"4208",t:"Cheil (Thailand) Ltd.",tw:"C",fl:"42",m:"8556474",ct:1,b:44826.0,loc:"อยู่ในห้องชาร์จไฟทาวเวอร์ 3"},
-  {u:"4209-10",t:"Cheil (Thailand) Ltd.",tw:"T2",fl:"42",m:"8389330",ct:30,b:4700.9,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 2"},
-  {u:"4211",t:"Empty",tw:"D",fl:"42",m:"8421020",ct:1,b:82122.0,loc:"ห้องชาร์ปไฟฟ้า tower 1"},
-  {u:"4212",t:"Empty",tw:"T1",fl:"42",m:"8360621",ct:1,b:60494.0,loc:"ห้องชาร์ปไฟฟ้าทาวเวอร์ 1"},
-  {u:"4301",t:"Cristalla Co., Ltd.",tw:"T1",fl:"43",m:"8379912",ct:1,b:91624.0,loc:"ห้องชาร์ปไฟฟ้า tower 1"},
-  {u:"4302",t:"Cristalla Co., Ltd.",tw:"T1",fl:"43",m:"8379886",ct:1,b:92144.0,loc:"ห้องชาร์ปไฟฟ้า tower 1"},
-  {u:"4303-4",t:"Sharing",tw:"T2",fl:"43",m:"8371814",ct:30,b:478.8,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 2"},
-  {u:"4305",t:"Cristalla Co., Ltd.",tw:"T3",fl:"43",m:"8561806",ct:1,b:23944.0,loc:"อยู่ในห้องชาร์จไฟทาวเวอร์3"},
-  {u:"4306",t:"Cristalla Co., Ltd.",tw:"T3",fl:"43",m:"8857680",ct:1,b:79119.0,loc:"อยู่ห้องชาร์ปไฟทาวเวอร์ 3"},
-  {u:"4307",t:"Cristalla Co., Ltd.",tw:"T3",fl:"43",m:"8549192",ct:1,b:11500.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 3"},
-  {u:"4308-10,Corridor (8549197)",t:"Empty",tw:"T3",fl:"43",m:"8549197",ct:1,b:25767.0,loc:"อยู่ในห้องชาร์ปไฟ tower 3"},
-  {u:"4308-10,Corridor (9850791)",t:"Empty",tw:"T2",fl:"43",m:"9850791",ct:30,b:925.1,loc:"อยู่ในห้องชาร์ปไฟ tower 2"},
-  {u:"4309",t:"Empty",tw:"T2",fl:"43",m:"DP43202B",ct:1,b:31396.0,loc:"ห้องM&E ทาวเวอร์2 โซนC, D"},
-  {u:"4310",t:"TECH X CORPORATION CO.,LTD",tw:"T2",fl:"43",m:"DP43202A",ct:1,b:26133.0,loc:"ห้องM&E ทาวเวอร์2 โซนC, D"},
-  {u:"4311",t:"Cristalla Co., Ltd.",tw:"T1",fl:"43",m:"8374292",ct:1,b:75240.0,loc:"ห้องชาร์ปไฟฟ้าทาวเวอร์ 1"},
-  {u:"4311 T2(Server)",t:"Cristalla Co., Ltd.",tw:"T1",fl:"43",m:"9236978",ct:1,b:37034.0,loc:"อยู่ชั้น R 3 ทาวเวอร์ 2"},
-  {u:"4312",t:"Cristalla Co., Ltd.",tw:"T1",fl:"43",m:"8374272",ct:1,b:81461.0,loc:"ห้องชาร์ปไฟฟ้า tower 1"},
-  {u:"4401",t:"Expeditors (Thailand) Ltd.",tw:"T1",fl:"44",m:"8420990",ct:1,b:36393.0,loc:"ห้องชาร์ปไฟฟ้า tower 1"},
-  {u:"4402",t:"Expeditors (Thailand) Ltd.",tw:"T1",fl:"44",m:"8421028",ct:1,b:17524.0,loc:"ห้องชาร์ปไฟฟ้า tower 1"},
-  {u:"4403",t:"Expeditors (Thailand) Ltd.",tw:"T2",fl:"44",m:"DP-44201A",ct:20,b:42091.0,loc:"อยู่ในห้องเครื่องทาวเวอร์2 โซน AB"},
-  {u:"4404",t:"Expeditors (Thailand) Ltd.",tw:"T2",fl:"44",m:"SDP-44201B",ct:20,b:45170.0,loc:"อยู่ในห้องเครื่องทาวเวอร์ 2 โซน AB"},
-  {u:"4405",t:"Empty",tw:"T3",fl:"44",m:"8561970",ct:1,b:38629.0,loc:"อยู่ในห้องชาร์จไฟทาวเวอร์ 3"},
-  {u:"4406",t:"Transportal Co., Ltd.",tw:"T3",fl:"44",m:"8561960",ct:1,b:92051.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 3"},
-  {u:"4407",t:"Thales (Thailand) Ltd.",tw:"T3",fl:"44",m:"8561962",ct:1,b:52372.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 3"},
-  {u:"4408",t:"Thales (Thailand) Ltd.",tw:"T3",fl:"44",m:"8561948",ct:1,b:9749.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 3"},
-  {u:"4409",t:"Empty",tw:"T2",fl:"44",m:"DB49202",ct:20,b:7651.0,loc:"อยู่ในห้องเครื่องทาวเวอร์ 2 โซน cd"},
-  {u:"4410",t:"Empty",tw:"T2",fl:"44",m:"8389555",ct:20,b:3299.1,loc:"อยู่ในห้องเครื่องทาวเวอร์ 2 โซน CD"},
-  {u:"4411",t:"Expeditors (Thailand) Ltd.",tw:"T1",fl:"44",m:"8421057",ct:1,b:5505.0,loc:"ห้องชาร์ปไฟฟ้า tower 1"},
-  {u:"4412",t:"Expeditors (Thailand) Ltd.",tw:"T1",fl:"44",m:"8421015",ct:1,b:57756.0,loc:"ห้องชาร์ปไฟฟ้า tower 1"},
-  {u:"4501",t:"Arysta Life Science Thailand CO.,Ltd.",tw:"T1",fl:"45",m:"8503361",ct:1,b:50582.0,loc:"ห้องชาร์ปไฟทาวเวอร์ 1"},
-  {u:"4502",t:"Empty",tw:"T1",fl:"45",m:"8529035",ct:1,b:69488.0,loc:"ห้องชาร์ปไฟฟ้าทาวเวอร์ 1"},
-  {u:"4503-04",t:"Sharing/Abercrombie & Kent/Full Join",tw:"T2",fl:"45",m:"8389634",ct:40,b:4174.4,loc:"อยู่ในห้องชาร์จไฟ tower 2"},
-  {u:"4503",t:"Abercrombie & Kent",tw:"T2",fl:"45",m:"8371623",ct:80,b:4718.5,loc:"อยู่ในห้องเครื่องทาวเวอร์ 2 โซน AB"},
-  {u:"4504",t:"Gravitiy Group",tw:"T2",fl:"45",m:"8371754",ct:80,b:7119.2,loc:"อยู่ในห้องเครื่อง tower 2 โซน AB"},
-  {u:"4505",t:"Empty",tw:"T3",fl:"45",m:"8561885",ct:1,b:98374.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 3"},
-  {u:"4506",t:"Empty",tw:"T3",fl:"45",m:"8561946",ct:1,b:84866.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 3"},
-  {u:"4507",t:"Empty",tw:"T3",fl:"45",m:"8561875",ct:1,b:50615.0,loc:"อยู่ในห้องชาร์จไฟทาวเวอร์ 3"},
-  {u:"4508",t:"WUDONG CONSTRUCTION HOLDING CO., LTD",tw:"T3",fl:"45",m:"8561947",ct:1,b:39301.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 3"},
-  {u:"4509-10",t:"Nikon Sales (Thailand) Co.,Ltd.",tw:"T2",fl:"45",m:"8377739",ct:40,b:2275.9,loc:"อยู่ในห้องชาร์ปไฟ tower2"},
-  {u:"4511",t:"Nikon Sales (Thailand) Co.,Ltd.",tw:"T1",fl:"45",m:"8529019",ct:1,b:94463.0,loc:"ห้องชาร์ปไฟทาวเวอร์ 1"},
-  {u:"4512",t:"Empty",tw:"T1",fl:"45",m:"8529020",ct:1,b:44644.0,loc:"ห้องชาร์ปไฟทาวเวอร์ 1"},
-  {u:"R3 (9738341)",t:"Thai Samsung Electronics Co., Ltd.",tw:"T1",fl:"R3",m:"9738341",ct:50,b:8339.3,loc:"อยู่ชั้น r3 tower 1"},
-  {u:"R3 (9738367)",t:"Thai Samsung Electronics Co., Ltd.",tw:"T1",fl:"R3",m:"9738367",ct:50,b:3013.2,loc:"อยู่ชั้น r3 tower 1"},
-  {u:"R3 (9738345)",t:"Thai Samsung Electronics Co., Ltd.",tw:"T2",fl:"R3",m:"9738345",ct:50,b:2416.0,loc:"อยู่ชั้น r3 tower 2"},
-  {u:"R3 (540250040058)",t:"Samsung E&A (Thailand) Co., Ltd",tw:"R3",fl:"R3",m:"540250040058",ct:1000,b:117.51,loc:"มิเตอร์อยู่ชั้น r3 tower 1"},
-  {u:"R3 (8761583)",t:"T.C.C. Technology Co., Ltd.",tw:"T1",fl:"R3",m:"8761583",ct:1,b:28246.0,loc:"อยู่ชั้น r3 ทาวเวอร์ 2 ข้างห้องเซฟตี้"},
-  {u:"R3 (A061-6040999-JY)",t:"True Move H Universal Communication Co., Ltd.",tw:"T1",fl:"R3",m:"A061-6040999-JY",ct:1,b:5687.0,loc:"อยู่ข้างหม้อแปลง r3 tower 1"},
-  {u:"R3 (A281-7000238-ZT)",t:"Fax Lite Co,Ltd.(AIS)",tw:"T1",fl:"R3",m:"A281-7000238-ZT",ct:1,b:74276.0,loc:"อยู่ในห้อง sharp r3 tower 1"},
-  {u:"R3 (9292126)",t:"Fax Lite Co,Ltd.(AIS)",tw:"T2",fl:"R3",m:"9292126",ct:1,b:9439.8,loc:"อยู่หน้าห้องหม้อแปลง r3/2"},
-  {u:"R3 (A281-7000229-AG)",t:"Fax Lite Co,Ltd.(AIS)",tw:"R3",fl:"R3",m:"A281-7000229-AG",ct:1,b:92477.0,loc:"อยู่ในชาร์ป store เก็บของ r3"},
-  {u:"4601",t:"Maersk Line (Thailand) Limited",tw:"T1",fl:"46",m:"8615697",ct:1,b:96107.0,loc:"ห้องชาร์จไฟT1"},
-  {u:"4602",t:"Maersk Logisitcs and Services (Thailand) Co., Ltd.",tw:"T1",fl:"46",m:"8615706",ct:1,b:13342.0,loc:"ห้องชาร์ปไฟT1"},
-  {u:"4603",t:"Maersk Logisitcs and Services (Thailand) Co., Ltd.",tw:"T2",fl:"46",m:"9373787",ct:1,b:92550.0,loc:"อยู่ในห้องเครื่อง m&e tower 2 โซน AB"},
-  {u:"4604",t:"Maersk Logisitcs and Services (Thailand) Co., Ltd.",tw:"T3",fl:"46",m:"46201B",ct:1,b:755572.0,loc:"อยู่ในห้องเครื่อง tower 2 โซน AB"},
-  {u:"4605",t:"Empty",tw:"T3",fl:"46",m:"8398089",ct:1,b:29037.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 3"},
-  {u:"4606",t:"Empty",tw:"T3",fl:"46",m:"8398084",ct:1,b:13384.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 3"},
-  {u:"4607",t:"Empty",tw:"T3",fl:"46",m:"8398106",ct:1,b:3552.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 3"},
-  {u:"4608",t:"Empty",tw:"T3",fl:"46",m:"8398049",ct:1,b:50828.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 3"},
-  {u:"4609",t:"Empty",tw:"T2",fl:"46",m:"46202B",ct:1,b:178107.0,loc:"อยู่ในห้องเครื่องทาวเวอร์2 โซน CD"},
-  {u:"4610",t:"Maersk Logisitcs and Services (Thailand) Co., Ltd.",tw:"T2",fl:"46",m:"46202A",ct:1,b:197815.0,loc:"อยู่ในห้องเครื่อง tower 2 โซน CD"},
-  {u:"4611",t:"Maersk Logisitcs and Services (Thailand) Co., Ltd.",tw:"T1",fl:"46",m:"8629515",ct:1,b:95583.0,loc:"ห้องชาร์จไฟT 1"},
-  {u:"4612",t:"Maersk Line (Thailand) Limited",tw:"T1",fl:"46",m:"8900766",ct:1,b:48455.0,loc:"ห้องชาร์ปไฟT1"},
-  {u:"Fl.46-1",t:"Maersk Logisitcs and Services (Thailand) Co., Ltd.",tw:"T1",fl:"46",m:"8983777",ct:50,b:1043.0,loc:"ห้องชาร์จไฟ T1"},
-  {u:"Fl.46-2",t:"Maersk Logisitcs and Services (Thailand) Co., Ltd.",tw:"T2",fl:"46",m:"8983900",ct:50,b:3316.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 2"},
-  {u:"4701",t:"V Beyond Development Holding Co., Ltd.",tw:"T1",fl:"47",m:"8421017",ct:1,b:37792.0,loc:"ห้องชาร์ปไฟฟ้า T1"},
-  {u:"4702",t:"Empty",tw:"T1",fl:"47",m:"8421034",ct:1,b:51944.0,loc:"ห้องชาร์ปไฟฟ้า T1"},
-  {u:"4703",t:"Pacific Stronghold Ltd.",tw:"T2",fl:"47",m:"SDP-47201A",ct:20,b:34796.0,loc:"M&E T2 AB"},
-  {u:"4704",t:"Pacific Stronghold Ltd.",tw:"T2",fl:"47",m:"9850655",ct:20,b:8050.0,loc:"M&E T2 AB"},
-  {u:"4705",t:"Empty",tw:"T3",fl:"47",m:"8567893",ct:1,b:53642.0,loc:"ชาร์ปไฟฟ้าT3"},
-  {u:"4706",t:"Empty",tw:"T3",fl:"47",m:"8567882",ct:1,b:41169.0,loc:"ชาร์ปไฟฟ้าT3"},
-  {u:"4707",t:"Empty",tw:"T3",fl:"47",m:"8567956",ct:1,b:54199.0,loc:"ชาร์ปไฟฟ้าT3"},
-  {u:"4708",t:"Empty",tw:"T3",fl:"47",m:"8933785",ct:1,b:11290.0,loc:"ชาร์ปไฟฟ้าT3"},
-  {u:"4709",t:"Pacific Stronghold Ltd.",tw:"T2",fl:"47",m:"SDP-47202B",ct:20,b:48521.0,loc:"M&E T2 CD"},
-  {u:"4710",t:"Pacific Stronghold Ltd.",tw:"T2",fl:"47",m:"SDP-47202A",ct:20,b:52578.0,loc:"M&E T2 CD"},
-  {u:"4711",t:"V Beyond Development Holding Co., Ltd.",tw:"T1",fl:"47",m:"8421044",ct:1,b:92881.0,loc:"ห้องชาร์ปไฟฟ้า T1"},
-  {u:"4712",t:"V Beyond Development Holding Co., Ltd.",tw:"T1",fl:"47",m:"8421032",ct:1,b:52989.0,loc:"ห้องชาร์ปไฟฟ้า T1"},
-  {u:"4801",t:"KPMG Phoomchai Audit Limited",tw:"T1",fl:"48",m:"8374303",ct:1,b:5022.0,loc:"ห้องชาร์ปไฟฟ้า T1"},
-  {u:"4802",t:"KPMG Phoomchai Tax Ltd.",tw:"T1",fl:"48",m:"8374287",ct:1,b:30406.0,loc:"ห้องชาร์ปไฟฟ้า T1"},
-  {u:"4803-04",t:"KPMG Phoomchai Business Advisory Limited",tw:"T2",fl:"48",m:"8386044",ct:40,b:7811.1,loc:"ห้องชาร์ปไฟฟ้า T2"},
-  {u:"4805",t:"KPMG Phoomchai Audit Limited",tw:"T3",fl:"48",m:"8567918",ct:1,b:61649.0,loc:"ห้องชาร์ปไฟฟ้า T3"},
-  {u:"4806",t:"KPMG Phoomchai Audit Limited",tw:"T3",fl:"48",m:"8567906",ct:1,b:54111.0,loc:"ห้องชาร์ปไฟฟ้า T3"},
-  {u:"4807",t:"KPMG Phoomchai Audit Limited",tw:"T3",fl:"48",m:"8567901",ct:1,b:86226.0,loc:"ห้องชาร์ปไฟฟ้า T3"},
-  {u:"4808",t:"KPMG Phoomchai Business Advisory Limited",tw:"T3",fl:"48",m:"8567911",ct:1,b:22662.0,loc:"ห้องชาร์ปไฟฟ้า T3"},
-  {u:"4809-10-1",t:"KPMG Phoomchai Business Advisory Limited",tw:"T2",fl:"48",m:"8379677",ct:40,b:6030.4,loc:"ห้องชาร์ปไฟฟ้า T1"},
-  {u:"4811",t:"KPMG Phoomchai Audit Limited",tw:"T1",fl:"48",m:"8579902",ct:1,b:61991.0,loc:"ห้องชาร์ปไฟฟ้า T1"},
-  {u:"4812",t:"KPMG Phoomchai Business Advisory Limited",tw:"T1",fl:"48",m:"8574305",ct:1,b:5910.0,loc:"ห้องชาร์ปไฟฟ้า T1"},
-  {u:"SR48-1-1",t:"KPMG Phoomchai Tax Ltd.",tw:"T1",fl:"48",m:"8622203",ct:20,b:9483.2,loc:"ห้องชาร์ปไฟฟ้า T1 ชั้น 48ด้านขวาสุด"},
-  {u:"4901",t:"KPMG Phoomchai Audit Limited",tw:"T1",fl:"49",m:"8441385",ct:1,b:84801.0,loc:"M&E T1 AB"},
-  {u:"4902",t:"KPMG Phoomchai Audit Limited",tw:"T1",fl:"49",m:"8431447",ct:1,b:50566.0,loc:"M&E T1 AB"},
-  {u:"4903",t:"KPMG Phoomchai Tax Ltd.",tw:"T2",fl:"49",m:"8338957",ct:1,b:31331.0,loc:"M&E T2 AB เข้าห้องน้ำหญิง"},
-  {u:"4904",t:"KPMG Phoomchai Tax Ltd.",tw:"T2",fl:"49",m:"8359943",ct:1,b:15387.0,loc:"M&E T2 AB เข้าห้องน้ำหญิง"},
-  {u:"4905",t:"KPMG Phoomchai Tax Ltd.",tw:"T3",fl:"49",m:"8418128",ct:1,b:43147.0,loc:"M&E T2 AB เข้าห้องน้ำหญิง"},
-  {u:"4906",t:"KPMG Phoomchai Tax Ltd.",tw:"T3",fl:"49",m:"8420973",ct:1,b:8248.0,loc:"M&E T2 AB เข้าห้องน้ำหญิง"},
-  {u:"4907",t:"KPMG Phoomchai Lagal Limited",tw:"T2",fl:"49",m:"8441377",ct:1,b:27732.0,loc:"M&E T2 CD"},
-  {u:"4908",t:"KPMG Phoomchai Audit Limited",tw:"T2",fl:"49",m:"8431435",ct:1,b:42404.0,loc:"M&E T2 CD"},
-  {u:"4909",t:"KPMG Phoomchai Audit Limited",tw:"T2",fl:"49",m:"8431486",ct:1,b:32159.0,loc:"M&E T2 CD"},
-  {u:"4910",t:"KPMG Phoomchai Audit Limited",tw:"T2",fl:"49",m:"8441366",ct:1,b:87056.0,loc:"M&E T2 CD"},
-  {u:"4911",t:"KPMG Phoomchai Audit Limited",tw:"T1",fl:"49",m:"8420962",ct:1,b:59878.0,loc:"M&E T1 CD"},
-  {u:"4912",t:"KPMG Phoomchai Audit Limited",tw:"T1",fl:"49",m:"8421006",ct:1,b:82416.0,loc:"M&E T1 CD"},
-  {u:"ME49-2-1",t:"KPMG Phoomchai Audit Limited",tw:"T2",fl:"49",m:"8708094",ct:1,b:96552.0,loc:"M&E T2 CD"},
-  {u:"ME49-2-2",t:"KPMG Phoomchai Audit Limited",tw:"T2",fl:"49",m:"8490308",ct:1,b:999.0,loc:"M&E T2 CD"},
-  {u:"5001",t:"KPMG Phoomchai Audit Limited",tw:"T1",fl:"50",m:"DP-50101A",ct:40,b:28796.0,loc:"M&E T1 AB"},
-  {u:"5002",t:"KPMG Phoomchai Audit Limited",tw:"T1",fl:"50",m:"DP-50102B",ct:40,b:21363.0,loc:"M&E T1 AB"},
-  {u:"5003",t:"KPMG Phoomchai Audit Limited",tw:"T2",fl:"50",m:"DP-50201A",ct:40,b:34889.0,loc:"M&E T2 AB"},
-  {u:"5004",t:"KPMG Phoomchai Audit Limited",tw:"T2",fl:"50",m:"DP-50202B",ct:40,b:29652.0,loc:"M&E T2 AB"},
-  {u:"5005",t:"KPMG Phoomchai Audit Limited",tw:"T3",fl:"50",m:"SDB-50301",ct:20,b:31732.0,loc:"M&E T2 AB"},
-  {u:"5006",t:"KPMG Phoomchai Audit Limited",tw:"T3",fl:"50",m:"SDB-50303",ct:20,b:45086.0,loc:"M&E T2 CD"},
-  {u:"5007",t:"KPMG Phoomchai Audit Limited",tw:"T2",fl:"50",m:"DP-50204D",ct:40,b:35992.0,loc:"M&E T2 CD"},
-  {u:"5008",t:"KPMG Phoomchai Audit Limited",tw:"T2",fl:"50",m:"DP-50203C",ct:40,b:15645.0,loc:"M&E T2 CD"},
-  {u:"5009",t:"KPMG Phoomchai Audit Limited",tw:"T1",fl:"50",m:"DP-50104D",ct:40,b:1633.0,loc:"M&E T1 CD"},
-  {u:"5010",t:"KPMG Phoomchai Audit Limited",tw:"T1",fl:"50",m:"DP-50103C",ct:40,b:17088.0,loc:"M&E T1 CD"},
-  {u:"5101",t:"2C2P (Thailand) Co., Ltd",tw:"T1",fl:"51",m:"DP-51101A",ct:40,b:24134.0,loc:"M&E T1 AB ใกล้ลิฟท์19"},
-  {u:"5102",t:"2C2P (Thailand) Co., Ltd",tw:"T1",fl:"51",m:"DP-51102B",ct:40,b:17469.0,loc:"M&E T1 AB"},
-  {u:"5103",t:"2C2P (Thailand) Co., Ltd",tw:"T2",fl:"51",m:"DP-51201A",ct:40,b:18133.0,loc:"M&E T2 AB"},
-  {u:"5104",t:"2C2P (Thailand) Co., Ltd",tw:"T2",fl:"51",m:"DP-51202B",ct:40,b:17048.0,loc:"M&E T2 AB"},
-  {u:"5105",t:"2C2P (Thailand) Co., Ltd",tw:"T3",fl:"51",m:"SDB-51301",ct:40,b:14397.0,loc:"M&E T2 AB"},
-  {u:"5106",t:"2C2P (Thailand) Co., Ltd",tw:"T3",fl:"51",m:"SDB-51303",ct:40,b:14351.0,loc:"M&E T1 CD"},
-  {u:"5107",t:"2C2P (Thailand) Co., Ltd",tw:"T2",fl:"51",m:"DP-51204D",ct:40,b:12709.0,loc:"M&E T2 CD"},
-  {u:"5108",t:"2C2P (Thailand) Co., Ltd",tw:"T2",fl:"51",m:"DP-51203C",ct:40,b:9700.0,loc:"M&E T2 CD"},
-  {u:"5109",t:"2C2P (Thailand) Co., Ltd",tw:"T1",fl:"51",m:"DP-51104D",ct:40,b:16364.0,loc:"M&E T1 CD"},
-  {u:"5110",t:"2C2P (Thailand) Co., Ltd",tw:"T1",fl:"51",m:"DP-51103C",ct:40,b:28772.0,loc:"M&E T1 CD"},
-  {u:"5201",t:"Asset World Corp PCL.",tw:"T1",fl:"52",m:"SDB52101A",ct:40,b:18602.0,loc:"M&E T1 AB"},
-  {u:"5202",t:"Empty",tw:"T1",fl:"52",m:"SDB52102B",ct:40,b:15243.0,loc:"M&E T2 CD"},
-  {u:"5203",t:"Empty",tw:"T2",fl:"52",m:"DP-52201A",ct:1,b:11873.0,loc:"M&E T2 AB"},
-  {u:"5204/1-2",t:"Empty",tw:"T2",fl:"52",m:"DP-52201B",ct:40,b:10573.0,loc:"M&E T2 AB"},
-  {u:"5205",t:"Empty",tw:"T2",fl:"52",m:"DP-52202D",ct:1,b:11253.0,loc:"M&E T2 CD"},
-  {u:"5206",t:"Empty",tw:"T2",fl:"52",m:"DP52202C",ct:40,b:13937.0,loc:"M&E T2 CD"},
-  {u:"5207/2",t:"Asset World Corp PCL.",tw:"T1",fl:"52",m:"SDB52104D",ct:40,b:11983.0,loc:"M&E T1 CD"},
-  {u:"5208",t:"Asset World Corp PCL.",tw:"T1",fl:"52",m:"SDB52103C",ct:40,b:21156.0,loc:"M&E T1 CD"},
-  {u:"5301",t:"AWC Lifestyle Commercial Property Co., Ltd.",tw:"T1",fl:"53",m:"SDB53101",ct:40,b:25679.0,loc:"M&E T1 AB"},
-  {u:"5301/1",t:"TCC Hotel Collection Co.,Ltd.",tw:"T1",fl:"53",m:"8769615",ct:30,b:317.3,loc:"M&E T1 AB"},
-  {u:"5302/1-2",t:"AWC Lifestyle Commercial Property Co., Ltd.",tw:"T1",fl:"53",m:"SDB53102",ct:40,b:24603.0,loc:"M&E T1 CD"},
-  {u:"5303/1-4",t:"AWC Lifestyle Commercial Property Co., Ltd.",tw:"T2",fl:"53",m:"DP53201A",ct:40,b:16260.0,loc:"M&E T1 AB"},
-  {u:"5304/1",t:"TCC Hotel Collection Co.,Ltd.",tw:"T2",fl:"53",m:"8389631",ct:40,b:53.8,loc:"M&E T1 AB"},
-  {u:"5304/1-3",t:"AWC Lifestyle Commercial Property Co., Ltd.",tw:"T2",fl:"53",m:"DP53201B",ct:40,b:11968.0,loc:"M&E T2 AB"},
-  {u:"5305/1-3",t:"Asset World Corp Public Company Limited",tw:"T2",fl:"53",m:"DP53202D",ct:40,b:17225.0,loc:"M&E T2 CD"},
-  {u:"5306/1-2",t:"Asset World Corp Public Company Limited",tw:"T2",fl:"53",m:"DP53202C",ct:40,b:16384.0,loc:"M&E T2 CD"},
-  {u:"5307/1-4",t:"Asset World Corp Public Company Limited",tw:"T1",fl:"53",m:"SDB53104",ct:40,b:21203.0,loc:"M&E T1 CD"},
-  {u:"5308/1-2",t:"Asset World Corp Public Company Limited",tw:"T1",fl:"53",m:"SDB53103",ct:40,b:27078.0,loc:"M&E T1 CD"},
-  {u:"5401/1-2, 02/1-2",t:"Asset World Corp Public Company Limited",tw:"T1",fl:"54",m:"8399174",ct:40,b:727.9,loc:"ห้องชาร์ปไฟฟ้า T1"},
-  {u:"5405-06",t:"Asset World Corp Public Company Limited",tw:"T2",fl:"54",m:"8389364",ct:40,b:3343.3,loc:"ห้องชาร์ปไฟฟ้า T2"},
-  {u:"5403, 04/1-3",t:"Asset World Corp Public Company Limited",tw:"T2",fl:"54",m:"8389273",ct:40,b:8760.7,loc:"ห้องชาร์ไฟฟ้า T2 ใกล้ลิฟ 33"},
-  {u:"5406 (server)",t:"Asset World Corp Public Company Limited",tw:"T1",fl:"54",m:"A261-9016086-LF",ct:40,b:2638.5,loc:"ห้องชาร์ฟไฟฟ้าชั้น57"},
-  {u:"5407/1-2, 08",t:"Asset World Corp Public Company Limited",tw:"T1",fl:"54",m:"8399246",ct:40,b:5581.9,loc:"ห้องชาร์ปไฟฟ้า T1"},
-  {u:"R1(Fl.55)",t:"Gachi International Group Ltd.(Maru Dessert House)",tw:"T2",fl:"55",m:"R1",ct:1,b:15878.0,loc:"ห้องไฟฟ้าใหม่(ครัวร้านแดง)"},
-  {u:"R2(Fl.55)",t:"Yolkshine CO.,Ltd(Kirabi Sathorn)",tw:"T2",fl:"55",m:"R2",ct:1,b:10807.2,loc:"ห้องไฟฟ้าใหม่(ครัวร้านแดง)"},
-  {u:"R3 (Fl.55)",t:"Peace Oriental Tea House Co.,Ltd.",tw:"T2",fl:"55",m:"R3",ct:1,b:218053.3,loc:"ห้องไฟฟ้าใหม่(ครัวร้านแดง)"},
-  {u:"R4 (Fl.55)",t:"Empty",tw:"T2",fl:"55",m:"R4",ct:1,b:249.7,loc:"ห้องไฟฟ้าใหม่(ครัวร้านแดง)"},
-  {u:"R5 (Fl.55)",t:"Empty",tw:"T2",fl:"55",m:"R5",ct:1,b:29316.6,loc:"ห้องไฟฟ้าใหม่(ครัวร้านแดง)"},
-  {u:"R6/1 (Fl.55)",t:"Abundant Eminent (Thailand) Ltd.(%Arabica)",tw:"T2",fl:"55",m:"R6.1",ct:1,b:19644.1,loc:"ห้องไฟฟ้าใหม่(ครัวร้านแดง)"},
-  {u:"R6/2 (Fl.55)",t:"The Cassette Co.,Ltd.",tw:"T2",fl:"55",m:"R6",ct:1,b:468808.7,loc:"ห้องไฟฟ้าใหม่(ครัวร้านแดง)"},
-  {u:"Fl.55",t:"Empty",tw:"T2",fl:"55",m:"55AP-CDU-COR",ct:1,b:13172.7,loc:"ห้องไฟฟ้าใหม่(ครัวร้านแดง)"},
-  {u:"5701-2",t:"TCC Hotel Collection Co.,Ltd.",tw:"T1",fl:"57",m:"8371748",ct:80,b:1422.0,loc:"ห้องชาร์ปไฟฟ้า"},
-  {u:"56 FL.(56DB1)",t:"TCC hotel Collection Co.,Ltd.",tw:"T1",fl:"56",m:"56DB1",ct:1,b:1412619.2,loc:"ห้องไฟฟ้าใหม่(M&E)"},
-  {u:"56 FL.(56DB2)",t:"TCC hotel Collection Co.,Ltd.",tw:"T1",fl:"56",m:"56DB2",ct:1,b:885008.2,loc:"ห้องไฟฟ้าใหม่(M&E)"},
-  {u:"Italt Kitchen 56 FL.(R3.)",t:"TCC hotel Collection Co.,Ltd.",tw:"T1",fl:"56",m:"MDB 01HA",ct:1,b:30.894,loc:"ห้องหม้อแปลง R3/1"},
-  {u:"57 FL.",t:"TCC hotel Collection Co.,Ltd.",tw:"T1",fl:"57",m:"57DB1",ct:1,b:773971.784,loc:"ห้องไฟฟ้าใหม่ติดห้องชาร์ปไฟอาคาร"},
-  {u:"จอ LED57 FL.(R3)",t:"TCC hotel Collection Co.,Ltd.",tw:"T1",fl:"57",m:"จอ LED57 FL.",ct:1,b:186.13,loc:"ห้องหม้อแปลง R3/1"},
-  {u:"58 FL.(58DB1)",t:"TCC hotel Collection Co.,Ltd.",tw:"T1",fl:"58",m:"58DB1",ct:1,b:552103.225,loc:"ห้องไฟฟ้าใหม่(M&E)"},
-  {u:"58 FL.(58DB2)",t:"TCC hotel Collection Co.,Ltd.",tw:"T1",fl:"58",m:"58DB2",ct:1,b:623866.756,loc:"ห้องไฟฟ้าใหม่(M&E)"},
+// ── Floor 38 ──────────────────────────────
+{u:"3801",t:"Empty",tw:"1",fl:"38",m:"8418690",ct:1,b:96718.0,loc:"ห้องชาร์ปไฟฟ้าทาวเวอร์ 1"},
+{u:"3802",t:"Empty",tw:"1",fl:"38",m:"8379972",ct:1,b:52261.0,loc:"ห้องชาร์ปไฟฟ้าทาวเวอร์ 1"},
+{u:"3803-5",t:"Empty",tw:"2",fl:"38",m:"8377743",ct:30,b:326.8,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์2"},
+{u:"3806",t:"Empty",tw:"3",fl:"38",m:"8360684",ct:1,b:43427.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์3"},
+{u:"3807",t:"Empty",tw:"3",fl:"38",m:"8359872",ct:1,b:66016.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์3"},
+{u:"3808",t:"Empty",tw:"3",fl:"38",m:"8360679",ct:1,b:98648.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์3"},
+{u:"3809",t:"Empty",tw:"3",fl:"38",m:"8398095",ct:1,b:59373.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์3"},
+{u:"3810-12",t:"Empty",tw:"2",fl:"38",m:"8374730",ct:30,b:7830.5,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์2"},
+{u:"3813",t:"Empty",tw:"1",fl:"38",m:"8374275",ct:1,b:50721.0,loc:"ห้องชาร์ปไฟฟ้าทาวเวอร์ 1"},
+{u:"3814",t:"Empty",tw:"1",fl:"38",m:"8418684",ct:1,b:49633.0,loc:"ห้องชาร์จไฟฟ้าทาวเวอร์ 1"},
+// ── Floor 39 ──────────────────────────────
+{u:"3901",t:"Empty",tw:"1",fl:"39",m:"8374331",ct:1,b:11400.0,loc:"ห้องชาร์จไฟทาวเวอร์ 1"},
+{u:"3902",t:"Empty",tw:"1",fl:"39",m:"8374340",ct:1,b:15646.0,loc:"ห้องชาร์ปไฟทาวเวอร์ 1"},
+{u:"3903 (3901)",t:"Empty",tw:"2",fl:"39",m:"9840922",ct:1,b:81571.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 2"},
+{u:"3903-4",t:"Empty (Sharing)",tw:"2",fl:"39",m:"8371800",ct:30,b:6438.2,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 2"},
+{u:"3905",t:"Empty",tw:"3",fl:"39",m:"8398085",ct:1,b:39775.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์3"},
+{u:"3906",t:"Empty",tw:"3",fl:"39",m:"8353793",ct:1,b:78432.0,loc:"อยู่ในห้องชาร์ปทาวเวอร์3"},
+{u:"3907",t:"Empty",tw:"3",fl:"39",m:"8360641",ct:1,b:82449.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์3"},
+{u:"3908",t:"Empty",tw:"3",fl:"39",m:"8398027",ct:1,b:17447.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์3"},
+{u:"3909-10-1",t:"Sharing",tw:"2",fl:"39",m:"9833650",ct:30,b:6418.9,loc:"อยู่ในห้องชาร์ปไฟ ทาวเวอร์2"},
+{u:"3911",t:"Empty",tw:"1",fl:"39",m:"8374319",ct:1,b:90504.0,loc:"ห้องชาร์ปไฟทาวเวอร์ 1"},
+{u:"3912",t:"Empty",tw:"1",fl:"39",m:"8374290",ct:1,b:51259.0,loc:"ห้องชาร์จไฟ tower 1"},
+// ── Floor 40 ──────────────────────────────
+{u:"4001",t:"Thai Samsung Electronics Co., Ltd.",tw:"1",fl:"40",m:"8374274",ct:1,b:71340.0,loc:"ห้องชาร์ปไฟทาวเวอร์ 1"},
+{u:"4002",t:"Thai Samsung Electronics Co., Ltd.",tw:"1",fl:"40",m:"8374289",ct:1,b:4935.0,loc:"ห้องชาร์ปไฟทาวเวอร์ 1"},
+{u:"4003-4",t:"Thai Samsung Electronics Co., Ltd.",tw:"2",fl:"40",m:"8374656",ct:30,b:5600.1,loc:"อยู่ในห้องชาร์ปไฟ tower 2"},
+{u:"4005",t:"Thai Samsung Electronics Co., Ltd.",tw:"3",fl:"40",m:"8494812",ct:1,b:27561.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 3"},
+{u:"4006",t:"Thai Samsung Electronics Co., Ltd.",tw:"3",fl:"40",m:"8494830",ct:1,b:22864.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์3"},
+{u:"4007",t:"Thai Samsung Electronics Co., Ltd.",tw:"3",fl:"40",m:"8494851",ct:1,b:40300.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์3"},
+{u:"4008",t:"Thai Samsung Electronics Co., Ltd.",tw:"3",fl:"40",m:"8494855",ct:1,b:73862.0,loc:"อยู่ในห้องชาร์ปไฟ T.3"},
+{u:"4009-10",t:"Thai Samsung Electronics Co., Ltd.",tw:"2",fl:"40",m:"8379632",ct:30,b:4958.9,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 2"},
+{u:"4011",t:"Thai Samsung Electronics Co., Ltd.",tw:"1",fl:"40",m:"8379924",ct:1,b:98672.0,loc:"ห้องชาร์จไฟ tower 1"},
+{u:"4012",t:"Thai Samsung Electronics Co., Ltd.",tw:"1",fl:"40",m:"8374309",ct:1,b:68170.0,loc:"ห้องชาร์ปไฟทาวเวอร์ 1"},
+// ── Floor 41 ──────────────────────────────
+{u:"4101",t:"Empty",tw:"1",fl:"41",m:"8421086",ct:1,b:37196.0,loc:"ห้องชาร์ปไฟทาวเวอร์ 1"},
+{u:"4102",t:"Empty",tw:"1",fl:"41",m:"8421045",ct:1,b:41270.0,loc:"ห้องชาร์จไฟทาวเวอร์ 1"},
+{u:"4103-4",t:"Empty (Sharing)",tw:"2",fl:"41",m:"8379590",ct:30,b:2000.7,loc:"อยู่ในห้องเช่าไฟฟ้าทาวเวอร์ 2"},
+{u:"4102 (SR41-2-1)",t:"Empty",tw:"2",fl:"41",m:"8549349",ct:50,b:5465.5,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์2"},
+{u:"4105",t:"Empty",tw:"3",fl:"41",m:"8359874",ct:1,b:56111.0,loc:"อยู่ในห้องชาร์จไฟทาวเวอร์3"},
+{u:"4106",t:"AddTech Hub Public Co.,Ltd",tw:"3",fl:"41",m:"A291-7013410-JN",ct:1,b:79101.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 3"},
+{u:"4107",t:"AddTech Hub Public Co.,Ltd",tw:"3",fl:"41",m:"8398025",ct:1,b:43592.0,loc:"อยู่ในห้องชาร์จไฟ tower 3"},
+{u:"4108",t:"Empty",tw:"3",fl:"41",m:"8398109",ct:1,b:33323.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 3"},
+{u:"4102 (server)",t:"Empty",tw:"3",fl:"41",m:"A261-6012644-TZ",ct:50,b:113.8,loc:"อยู่ในห้องชาร์ปไฟฟ้าทาวเวอร์ 3"},
+{u:"4109",t:"Empty",tw:"2",fl:"41",m:"DP-41202B",ct:1,b:18896.0,loc:"อยู่ในห้องเครื่องทั้ง 2 โซน CD"},
+{u:"4110",t:"Empty",tw:"2",fl:"41",m:"DP-41202A",ct:20,b:24377.0,loc:"อยู่ในห้องเครื่องโซน CDทาวเวอร์2"},
+{u:"4109-10",t:"Empty",tw:"2",fl:"41",m:"8371769",ct:1,b:7562.8,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 2"},
+{u:"4111",t:"Empty",tw:"1",fl:"41",m:"8421062",ct:1,b:99486.0,loc:"ห้องชาร์ปไฟทาวเวอร์ 1"},
+{u:"4112",t:"Empty",tw:"1",fl:"41",m:"8933795",ct:1,b:44896.0,loc:"ห้องชาร์ปไฟทาวเวอร์ 1"},
+// ── Floor 42 ──────────────────────────────
+{u:"4201",t:"Empty",tw:"A",fl:"42",m:"8329186",ct:1,b:72454.0,loc:"อยู่ในห้องชาร์จไฟฟ้าทาวเวอร์ 1"},
+{u:"4202",t:"Empty",tw:"1",fl:"42",m:"8359769",ct:1,b:95743.0,loc:"อยู่ในห้องชาร์จไฟ tower 1"},
+{u:"4203",t:"Cheil (Thailand) Ltd.",tw:"2",fl:"42",m:"DP-42101A",ct:20,b:40046.0,loc:"ห้องเครื่อง AB"},
+{u:"4204",t:"Cheil (Thailand) Ltd.",tw:"2",fl:"42",m:"DP-42101B",ct:20,b:19636.0,loc:"ห้องเครื่อง AB"},
+{u:"4205",t:"Empty",tw:"A",fl:"42",m:"8549184",ct:1,b:68636.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 3"},
+{u:"4206",t:"Empty",tw:"B",fl:"42",m:"A291-6004079-OE",ct:1,b:15968.0,loc:"อยู่ห้องชาร์ปทาวเวอร์ 3"},
+{u:"4207",t:"Cheil (Thailand) Ltd.",tw:"D",fl:"42",m:"8556564",ct:1,b:52390.0,loc:"อยู่ในห้องชาร์จไฟทาวเวอร์ 3"},
+{u:"4208",t:"Cheil (Thailand) Ltd.",tw:"C",fl:"42",m:"8556474",ct:1,b:44826.0,loc:"อยู่ในห้องชาร์จไฟทาวเวอร์ 3"},
+{u:"4209-10",t:"Cheil (Thailand) Ltd.",tw:"2",fl:"42",m:"8389330",ct:30,b:4700.9,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 2"},
+{u:"4211",t:"Empty",tw:"D",fl:"42",m:"8421020",ct:1,b:82122.0,loc:"ห้องชาร์ปไฟฟ้า tower 1"},
+{u:"4212",t:"Empty",tw:"1",fl:"42",m:"8360621",ct:1,b:60494.0,loc:"ห้องชาร์ปไฟฟ้าทาวเวอร์ 1"},
+// ── Floor 43 ──────────────────────────────
+{u:"4301",t:"Cristalla Co., Ltd.",tw:"1",fl:"43",m:"8379912",ct:1,b:91624.0,loc:"ห้องชาร์ปไฟฟ้า tower 1"},
+{u:"4302",t:"Cristalla Co., Ltd.",tw:"1",fl:"43",m:"8379886",ct:1,b:92144.0,loc:"ห้องชาร์ปไฟฟ้า tower 1"},
+{u:"4303-4",t:"Sharing",tw:"2",fl:"43",m:"8371814",ct:30,b:478.8,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 2"},
+{u:"4305",t:"Cristalla Co., Ltd.",tw:"3",fl:"43",m:"8561806",ct:1,b:23944.0,loc:"อยู่ในห้องชาร์จไฟทาวเวอร์3"},
+{u:"4306",t:"Cristalla Co., Ltd.",tw:"3",fl:"43",m:"8857680",ct:1,b:79119.0,loc:"อยู่ห้องชาร์ปไฟทาวเวอร์ 3"},
+{u:"4307",t:"Cristalla Co., Ltd.",tw:"3",fl:"43",m:"8549192",ct:1,b:11500.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 3"},
+{u:"4308-10,Corridor (8549197)",t:"Empty",tw:"3",fl:"43",m:"8549197",ct:1,b:25767.0,loc:"อยู่ในห้องชาร์ปไฟ tower 3"},
+{u:"4308-10,Corridor (9850791)",t:"Empty",tw:"2",fl:"43",m:"9850791",ct:30,b:925.1,loc:"อยู่ในห้องชาร์ปไฟ tower 2"},
+{u:"4309",t:"Empty",tw:"2",fl:"43",m:"DP43202B",ct:1,b:31396.0,loc:"ห้องM&E ทาวเวอร์2 โซนC, D"},
+{u:"4310",t:"TECH X CORPORATION CO.,LTD",tw:"2",fl:"43",m:"DP43202A",ct:1,b:26133.0,loc:"ห้องM&E ทาวเวอร์2 โซนC, D"},
+{u:"4311",t:"Cristalla Co., Ltd.",tw:"1",fl:"43",m:"8374292",ct:1,b:75240.0,loc:"ห้องชาร์ปไฟฟ้าทาวเวอร์ 1"},
+{u:"4311 T2(Server)",t:"Cristalla Co., Ltd.",tw:"1",fl:"43",m:"9236978",ct:1,b:37034.0,loc:"อยู่ชั้น R3 ทาวเวอร์ 2"},
+{u:"4312",t:"Cristalla Co., Ltd.",tw:"1",fl:"43",m:"8374272",ct:1,b:81461.0,loc:"ห้องชาร์ปไฟฟ้า tower 1"},
+// ── Floor 44 ──────────────────────────────
+{u:"4401",t:"Expeditors (Thailand) Ltd.",tw:"1",fl:"44",m:"8420990",ct:1,b:36393.0,loc:"ห้องชาร์ปไฟฟ้า tower 1"},
+{u:"4402",t:"Expeditors (Thailand) Ltd.",tw:"1",fl:"44",m:"8421028",ct:1,b:17524.0,loc:"ห้องชาร์ปไฟฟ้า tower 1"},
+{u:"4403",t:"Expeditors (Thailand) Ltd.",tw:"2",fl:"44",m:"DP-44201A",ct:20,b:42091.0,loc:"อยู่ในห้องเครื่องทาวเวอร์2 โซน AB"},
+{u:"4404",t:"Expeditors (Thailand) Ltd.",tw:"2",fl:"44",m:"SDP-44201B",ct:20,b:45170.0,loc:"อยู่ในห้องเครื่องทาวเวอร์ 2 โซน AB"},
+{u:"4405",t:"Empty",tw:"3",fl:"44",m:"8561970",ct:1,b:38629.0,loc:"อยู่ในห้องชาร์จไฟทาวเวอร์ 3"},
+{u:"4406",t:"Transportal Co., Ltd.",tw:"3",fl:"44",m:"8561960",ct:1,b:92051.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 3"},
+{u:"4407",t:"Thales (Thailand) Ltd.",tw:"3",fl:"44",m:"8561962",ct:1,b:52372.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 3"},
+{u:"4408",t:"Thales (Thailand) Ltd.",tw:"3",fl:"44",m:"8561948",ct:1,b:9749.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 3"},
+{u:"4409",t:"Empty",tw:"2",fl:"44",m:"DB49202",ct:20,b:7651.0,loc:"อยู่ในห้องเครื่องทาวเวอร์ 2 โซน cd"},
+{u:"4410",t:"Empty",tw:"2",fl:"44",m:"8389555",ct:20,b:3299.1,loc:"อยู่ในห้องเครื่องทาวเวอร์ 2 โซน CD"},
+{u:"4411",t:"Expeditors (Thailand) Ltd.",tw:"1",fl:"44",m:"8421057",ct:1,b:5505.0,loc:"ห้องชาร์ปไฟฟ้า tower 1"},
+{u:"4412",t:"Expeditors (Thailand) Ltd.",tw:"1",fl:"44",m:"8421015",ct:1,b:57756.0,loc:"ห้องชาร์ปไฟฟ้า tower 1"},
+// ── Floor 45 ──────────────────────────────
+{u:"4501",t:"Arysta Life Science Thailand CO.,Ltd.",tw:"1",fl:"45",m:"8503361",ct:1,b:50582.0,loc:"ห้องชาร์ปไฟทาวเวอร์ 1"},
+{u:"4502",t:"Empty",tw:"1",fl:"45",m:"8529035",ct:1,b:69488.0,loc:"ห้องชาร์ปไฟฟ้าทาวเวอร์ 1"},
+{u:"4503-04",t:"Sharing/Abercrombie & Kent/Full Join",tw:"2",fl:"45",m:"8389634",ct:40,b:4174.4,loc:"อยู่ในห้องชาร์จไฟ tower 2"},
+{u:"4503",t:"Abercrombie & Kent",tw:"2",fl:"45",m:"8371623",ct:80,b:4718.5,loc:"อยู่ในห้องเครื่องทาวเวอร์ 2 โซน AB"},
+{u:"4504",t:"Gravitiy Group",tw:"2",fl:"45",m:"8371754",ct:80,b:7119.2,loc:"อยู่ในห้องเครื่อง tower 2 โซน AB"},
+{u:"4505",t:"Empty",tw:"3",fl:"45",m:"8561885",ct:1,b:98374.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 3"},
+{u:"4506",t:"Empty",tw:"3",fl:"45",m:"8561946",ct:1,b:84866.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 3"},
+{u:"4507",t:"Empty",tw:"3",fl:"45",m:"8561875",ct:1,b:50615.0,loc:"อยู่ในห้องชาร์จไฟทาวเวอร์ 3"},
+{u:"4508",t:"WUDONG CONSTRUCTION HOLDING CO., LTD",tw:"3",fl:"45",m:"8561947",ct:1,b:39301.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 3"},
+{u:"4509-10",t:"Nikon Sales (Thailand) Co.,Ltd.",tw:"2",fl:"45",m:"8377739",ct:40,b:2275.9,loc:"อยู่ในห้องชาร์ปไฟ tower2"},
+{u:"4511",t:"Nikon Sales (Thailand) Co.,Ltd.",tw:"1",fl:"45",m:"8529019",ct:1,b:94463.0,loc:"ห้องชาร์ปไฟทาวเวอร์ 1"},
+{u:"4512",t:"Empty",tw:"1",fl:"45",m:"8529020",ct:1,b:44644.0,loc:"ห้องชาร์ปไฟทาวเวอร์ 1"},
+// ── R3 ────────────────────────────────────
+{u:"R3 (9738341)",t:"Thai Samsung Electronics Co., Ltd.",tw:"1",fl:"R3",m:"9738341",ct:50,b:8339.3,loc:"อยู่ชั้น r3 tower 1"},
+{u:"R3 (9738367)",t:"Thai Samsung Electronics Co., Ltd.",tw:"1",fl:"R3",m:"9738367",ct:50,b:3013.2,loc:"อยู่ชั้น r3 tower 1"},
+{u:"R3 (9738345)",t:"Thai Samsung Electronics Co., Ltd.",tw:"2",fl:"R3",m:"9738345",ct:50,b:2416.0,loc:"อยู่ชั้น r3 tower 2"},
+{u:"R3 (540250040058)",t:"Samsung E&A (Thailand) Co., Ltd",tw:"R3",fl:"R3",m:"540250040058",ct:1000,b:117.51,loc:"มิเตอร์อยู่ชั้น r3 tower 1"},
+{u:"R3 (8761583)",t:"T.C.C. Technology Co., Ltd.",tw:"1",fl:"R3",m:"8761583",ct:1,b:28246.0,loc:"อยู่ชั้น r3 ทาวเวอร์ 2 ข้างห้องเซฟตี้"},
+{u:"R3 (A061-6040999-JY)",t:"True Move H Universal Communication Co., Ltd.",tw:"1",fl:"R3",m:"A061-6040999-JY",ct:1,b:5687.0,loc:"อยู่ข้างหม้อแปลง r3 tower 1"},
+{u:"R3 (A281-7000238-ZT)",t:"Fax Lite Co,Ltd.(AIS)",tw:"1",fl:"R3",m:"A281-7000238-ZT",ct:1,b:74276.0,loc:"อยู่ในห้อง sharp r3 tower 1"},
+{u:"R3 (9292126)",t:"Fax Lite Co,Ltd.(AIS)",tw:"2",fl:"R3",m:"9292126",ct:1,b:9439.8,loc:"อยู่หน้าห้องหม้อแปลง r3/2"},
+{u:"R3 (A281-7000229-AG)",t:"Fax Lite Co,Ltd.(AIS)",tw:"R3",fl:"R3",m:"A281-7000229-AG",ct:1,b:92477.0,loc:"อยู่ในชาร์ป store เก็บของ r3"},
+// ── Floor 46 ──────────────────────────────
+{u:"4601",t:"Maersk Line (Thailand) Limited",tw:"1",fl:"46",m:"8615697",ct:1,b:96107.0,loc:"ห้องชาร์จไฟT1"},
+{u:"4602",t:"Maersk Logisitcs and Services (Thailand) Co., Ltd.",tw:"1",fl:"46",m:"8615706",ct:1,b:13342.0,loc:"ห้องชาร์ปไฟT1"},
+{u:"4603",t:"Maersk Logisitcs and Services (Thailand) Co., Ltd.",tw:"2",fl:"46",m:"9373787",ct:1,b:92550.0,loc:"อยู่ในห้องเครื่อง m&e tower 2 โซน AB"},
+{u:"4604",t:"Maersk Logisitcs and Services (Thailand) Co., Ltd.",tw:"3",fl:"46",m:"46201B",ct:1,b:755572.0,loc:"อยู่ในห้องเครื่อง tower 2 โซน AB"},
+{u:"4605",t:"Empty",tw:"3",fl:"46",m:"8398089",ct:1,b:29037.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 3"},
+{u:"4606",t:"Empty",tw:"3",fl:"46",m:"8398084",ct:1,b:13384.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 3"},
+{u:"4607",t:"Empty",tw:"3",fl:"46",m:"8398106",ct:1,b:3552.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 3"},
+{u:"4608",t:"Empty",tw:"3",fl:"46",m:"8398049",ct:1,b:50828.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 3"},
+{u:"4609",t:"Empty",tw:"2",fl:"46",m:"46202B",ct:1,b:178107.0,loc:"อยู่ในห้องเครื่องทาวเวอร์2 โซน CD"},
+{u:"4610",t:"Maersk Logisitcs and Services (Thailand) Co., Ltd.",tw:"2",fl:"46",m:"46202A",ct:1,b:197815.0,loc:"อยู่ในห้องเครื่อง tower 2 โซน CD"},
+{u:"4611",t:"Maersk Logisitcs and Services (Thailand) Co., Ltd.",tw:"1",fl:"46",m:"8629515",ct:1,b:95583.0,loc:"ห้องชาร์จไฟT 1"},
+{u:"4612",t:"Maersk Line (Thailand) Limited",tw:"1",fl:"46",m:"8900766",ct:1,b:48455.0,loc:"ห้องชาร์ปไฟT1"},
+{u:"Fl.46-1",t:"Maersk Logisitcs and Services (Thailand) Co., Ltd.",tw:"1",fl:"46",m:"8983777",ct:50,b:1043.0,loc:"ห้องชาร์จไฟ T1"},
+{u:"Fl.46-2",t:"Maersk Logisitcs and Services (Thailand) Co., Ltd.",tw:"2",fl:"46",m:"8983900",ct:50,b:3316.0,loc:"อยู่ในห้องชาร์ปไฟทาวเวอร์ 2"},
 ];
-// ══ THEME ══
-function applyTheme(t){
-  document.documentElement.setAttribute('data-theme',t);
-  const ic=document.getElementById('themeIcon');
-  if(ic)ic.textContent=t==='light'?'☀️':'🌙';
-  localStorage.setItem('emr_theme',t);
+
+// ══ THEME TOGGLE ══
+function applyTheme(theme){
+  document.documentElement.setAttribute('data-theme', theme);
+  const icon = document.getElementById('themeIcon');
+  if(icon) icon.textContent = theme === 'light' ? '☀️' : '🌙';
+  localStorage.setItem('tw_theme', theme);
 }
 function toggleTheme(){
-  const c=document.documentElement.getAttribute('data-theme')||'dark';
-  applyTheme(c==='dark'?'light':'dark');
+  const cur = document.documentElement.getAttribute('data-theme') || 'dark';
+  applyTheme(cur === 'dark' ? 'light' : 'dark');
 }
-(function(){applyTheme(localStorage.getItem('emr_theme')||'dark');})();
+// Apply saved theme immediately (before render flash)
+(function(){
+  const saved = localStorage.getItem('tw_theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', saved);
+})();
+const APPS_SCRIPT=`// Google Apps Script — Tower Meter Sync
+// Deploy: Web App, Execute as Me, Anyone access
 
-// ══ FIRESTORE HELPERS ══
-function safeKey(u){return u.replace(/[.#$/\[\]\s]/g,'_');}
-function fsPath(mk){return 'readings_'+mk.replace('-','_');}
+function doPost(e) {
+  try {
+    const data = JSON.parse(e.postData.contents);
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const tabName = data.sheetTab || 'MeterData';
+    let sheet = ss.getSheetByName(tabName);
+    if (!sheet) {
+      sheet = ss.insertSheet(tabName);
+      sheet.appendRow(['Month','Unit','Tenant','Tower','Floor',
+        'Meter No','CT','Prev','Current','Usage','DateTime','Location','ImageURL','SyncTime']);
+    }
+    const rows = data.rows || [];
+    rows.forEach(r => {
+      // Find existing row by Month+Unit
+      const dataRange = sheet.getDataRange();
+      const values = dataRange.getValues();
+      let found = -1;
+      for (let i = 1; i < values.length; i++) {
+        if (values[i][0] === r.month && values[i][1] === r.unit) {
+          found = i + 1; break;
+        }
+      }
+      const row = [r.month,r.unit,r.tenant,r.tower,r.floor,r.meter,
+        r.ct,r.prev,r.current,r.usage,r.datetime,r.location,r.imageUrl||'',new Date()];
+      if (found > 0) sheet.getRange(found, 1, 1, row.length).setValues([row]);
+      else sheet.appendRow(row);
+    });
+    return ContentService.createTextOutput(
+      JSON.stringify({status:'OK',rows:rows.length})
+    ).setMimeType(ContentService.MimeType.JSON);
+  } catch(err) {
+    return ContentService.createTextOutput(
+      JSON.stringify({status:'ERROR',msg:err.toString()})
+    ).setMimeType(ContentService.MimeType.JSON);
+  }
+}`;
 
 // ══ MONTH ══
 const MN=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -1252,124 +827,116 @@ function mlist(){
 // ══ STATE ══
 let meters=[],readings={},prevOv={};
 let curKey=mk(SY,SM),editIdx=-1;
-let fsUnsub=null,currentUser=null;
+let fbListener=null;   // Firebase realtime listener handle
+let isSyncing=false;
 
-// ══ AUTH ══
-function doLogin(){
-  const email=document.getElementById('loginEmail').value.trim();
-  const pass=document.getElementById('loginPass').value;
-  const btn=document.getElementById('loginBtn');
-  const err=document.getElementById('loginErr');
-  if(!email||!pass){showErr('กรุณากรอก Email และ Password');return;}
-  btn.disabled=true;
-  document.getElementById('loginBtnTxt').textContent='⏳ กำลัง Sign In...';
-  err.classList.remove('show');
-  auth.signInWithEmailAndPassword(email,pass)
-    .catch(e=>{
-      btn.disabled=false;
-      document.getElementById('loginBtnTxt').textContent='🔑 Sign In';
-      const msgs={'auth/user-not-found':'ไม่พบ Email นี้ในระบบ','auth/wrong-password':'รหัสผ่านไม่ถูกต้อง','auth/invalid-email':'Email ไม่ถูกต้อง','auth/too-many-requests':'พยายามมากเกินไป โปรดรอสักครู่','auth/invalid-credential':'Email หรือ Password ไม่ถูกต้อง'};
-      showErr(msgs[e.code]||e.message);
-    });
-}
-function showErr(m){const e=document.getElementById('loginErr');e.textContent=m;e.classList.add('show');}
-function doReset(){
-  const email=document.getElementById('loginEmail').value.trim();
-  if(!email){showErr('กรุณากรอก Email ก่อน');return;}
-  auth.sendPasswordResetEmail(email)
-    .then(()=>toast('📧 ส่ง Reset Email แล้ว กรุณาตรวจสอบ inbox'))
-    .catch(e=>showErr(e.message));
-}
-function doLogout(){
-  if(!confirm('ออกจากระบบ?'))return;
-  if(fsUnsub){fsUnsub();fsUnsub=null;}
-  auth.signOut();
-}
-// Enter key on login
-document.getElementById('loginPass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
-document.getElementById('loginEmail').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('loginPass').focus();});
-
-// ══ AUTH STATE LISTENER ══
-auth.onAuthStateChanged(user=>{
-  if(user){
-    currentUser=user;
-    document.getElementById('loginScreen').classList.remove('show');
-    document.getElementById('app').classList.add('show');
-    // Update user chip
-    const av=user.email?user.email[0].toUpperCase():'U';
-    document.getElementById('userAv').textContent=av;
-    document.getElementById('userEmail').textContent=user.email;
-    document.getElementById('userChip').style.display='flex';
-    document.getElementById('bbarUser').textContent=user.email.split('@')[0].toUpperCase();
-    initApp();
-  } else {
-    currentUser=null;
-    document.getElementById('loginScreen').classList.add('show');
-    document.getElementById('app').classList.remove('show');
-    if(fsUnsub){fsUnsub();fsUnsub=null;}
-  }
-});
-
-// ══ INIT APP ══
-function initApp(){
-  const sp=localStorage.getItem('emr_p');
-  meters=JSON.parse(JSON.stringify(RAW));
+function init(){
+  const savedTheme = localStorage.getItem('tw_theme') || 'dark';
+  applyTheme(savedTheme);
+  const sm=localStorage.getItem('tw_m');
+  const sp=localStorage.getItem('tw_p');
+  meters=sm?JSON.parse(sm):JSON.parse(JSON.stringify(RAW));
   prevOv=sp?JSON.parse(sp):{};
   const n=new Date(),nk=mk(n.getFullYear(),n.getMonth()+1),list=mlist();
   curKey=list.includes(nk)?nk:list[list.length-1];
   setSyncUI('connecting','CONNECTING...');
   buildTabs();render();
-  // Load prevOv from Firestore
+  // โหลด prevOv จาก Firestore (ค่าผ่านเดือนที่ rollover ไว้)
   db.collection('prevOv').get().then(snap=>{
-    snap.forEach(doc=>{prevOv[doc.id]=doc.data();});
-    localStorage.setItem('emr_p',JSON.stringify(prevOv));
+    snap.forEach(doc=>{ prevOv[doc.id]=doc.data(); });
+    saveLocal();
   }).catch(()=>{});
-  listenFirestore(curKey);
+  // เริ่ม realtime listener สำหรับเดือนปัจจุบัน
+  listenFirebase(curKey);
+}
+
+function saveLocal(){
+  localStorage.setItem('tw_m',JSON.stringify(meters));
+  localStorage.setItem('tw_p',JSON.stringify(prevOv));
 }
 
 // ══ SYNC UI ══
-function setSyncUI(state,label){
+function setSyncUI(state, label){
   const dot=document.getElementById('syncDot');
   const lbl=document.getElementById('syncLbl');
   const modal=document.getElementById('fbStatusInModal');
-  if(!dot)return;
+  if(!dot||!lbl) return;
   dot.className='sync-dot '+(state==='ok'?'':state==='connecting'?'syncing':'off');
-  if(lbl)lbl.textContent=label;
-  if(modal){
-    modal.textContent=state==='ok'?'🟢 เชื่อมต่อแล้ว — Realtime':state==='connecting'?'🔄 กำลังเชื่อมต่อ...':'🔴 เชื่อมต่อไม่ได้';
-    modal.style.color=state==='ok'?'var(--emerald)':state==='connecting'?'var(--amber)':'var(--rose)';
-  }
+  lbl.textContent=label;
+  if(modal) modal.textContent = state==='ok'?'🟢 เชื่อมต่อแล้ว — Realtime':state==='connecting'?'🔄 กำลังเชื่อมต่อ...':'🔴 เชื่อมต่อไม่ได้';
+  if(modal && state==='ok') modal.style.color='var(--emerald)';
+  else if(modal && state==='connecting') modal.style.color='var(--amber)';
+  else if(modal) modal.style.color='var(--rose)';
 }
 
-// ══ FIRESTORE LISTEN ══
-function listenFirestore(monthKey){
-  if(fsUnsub){fsUnsub();fsUnsub=null;}
+// ══ FIRESTORE HELPERS ══
+// โครงสร้าง: readings/{monthKey}/{unitId} = { cur, dt, img }
+// prevOv:    prevOv/{monthKey}           = { unit1: val, unit2: val, ... }
+
+function safeKey(u){ return u.replace(/[.#$/\[\]\s]/g,'_'); }
+
+// ══ LISTEN realtime ทุก unit ในเดือนที่เลือก ══
+let fsUnsubscribe = null;   // Firestore listener unsubscribe fn
+
+function listenFirebase(monthKey){
+  if(fsUnsubscribe){ fsUnsubscribe(); fsUnsubscribe=null; }
   setSyncUI('connecting','CONNECTING...');
-  const col=db.collection(fsPath(monthKey));
-  fsUnsub=col.onSnapshot(snapshot=>{
-    if(!readings[monthKey])readings[monthKey]={};
-    snapshot.docChanges().forEach(change=>{
-      const sk=change.doc.id;
-      const meter=meters.find(m=>safeKey(m.u)===sk);
-      const unit=meter?meter.u:sk;
-      if(change.type==='removed') delete readings[monthKey][unit];
-      else readings[monthKey][unit]=change.doc.data();
+  const col = db.collection('readings').doc(monthKey).collection('units');
+  fsUnsubscribe = col.onSnapshot(snapshot => {
+    if(!readings[monthKey]) readings[monthKey]={};
+    snapshot.docChanges().forEach(change => {
+      const sk  = change.doc.id;                         // safeKey unit
+      const meter = meters.find(m=>safeKey(m.u)===sk);
+      const unit  = meter ? meter.u : sk;
+      if(change.type==='removed'){
+        delete readings[monthKey][unit];
+      } else {
+        readings[monthKey][unit] = change.doc.data();
+      }
     });
-    render();buildTabs();
+    render();
+    buildTabs();
     setSyncUI('ok','LIVE 🟢');
-  },err=>{setSyncUI('off','ERROR ⚠️');toast('❌ '+err.message);});
+  }, err=>{
+    setSyncUI('off','ERROR ⚠️');
+    toast('❌ Firestore: '+err.message);
+  });
 }
 
-// ══ WRITE TO FIRESTORE ══
-function fbWrite(unit,data){
-  const sk=safeKey(unit);
-  const payload={};
-  if(data.cur!==undefined&&data.cur!==null)payload.cur=data.cur;
-  if(data.dt)payload.dt=data.dt;
-  if(data.img)payload.img=data.img;
-  if(data.by)payload.by=data.by;
-  db.collection(fsPath(curKey)).doc(sk).set(payload,{merge:true})
-    .catch(e=>toast('⚠️ Save error: '+e.message));
+// ══ WRITE unit ไปยัง Firestore ══
+function fbWrite(unit, data){
+  const sk = safeKey(unit);
+  // กรองเอาเฉพาะ fields ที่ต้องการ (ไม่ส่ง undefined)
+  const payload = {};
+  if(data.cur !== undefined && data.cur !== null) payload.cur = data.cur;
+  if(data.dt)  payload.dt  = data.dt;
+  if(data.img) payload.img = data.img;
+  db.collection('readings').doc(curKey)
+    .collection('units').doc(sk)
+    .set(payload, { merge: true })
+    .catch(e => toast('⚠️ Save error: '+e.message));
+}
+
+// ══ WRITE prevOv ไปยัง Firestore ══
+function fbWritePrevOv(monthKey, data){
+  db.collection('prevOv').doc(monthKey)
+    .set(data, { merge: true })
+    .catch(()=>{});
+}
+
+// ══ DELETE unit หรือทั้งเดือนจาก Firestore ══
+function fbDeleteUnit(unit){
+  const sk = safeKey(unit);
+  db.collection('readings').doc(curKey)
+    .collection('units').doc(sk)
+    .delete().catch(()=>{});
+}
+async function fbDeleteMonth(){
+  // Firestore ไม่มี delete collection โดยตรง — ต้อง delete ทีละ doc
+  const snap = await db.collection('readings').doc(curKey).collection('units').get();
+  const batch = db.batch();
+  snap.docs.forEach(d => batch.delete(d.ref));
+  await batch.commit();
 }
 
 // ══ PREV VALUE ══
@@ -1391,7 +958,11 @@ function buildTabs(){
     const mr=readings[k]||{};
     if(Object.values(mr).some(r=>r&&r.cur!=null&&r.cur!==''))b.classList.add('has');
     b.textContent=ml(k);
-    b.onclick=()=>{curKey=k;buildTabs();render();listenFirestore(k);};
+    b.onclick=()=>{
+      curKey=k;
+      buildTabs();render();
+      listenFirebase(k); // switch Firestore listener to new month
+    };
     el.appendChild(b);
   });
   setTimeout(()=>{const a=el.querySelector('.active');if(a)a.scrollIntoView({behavior:'smooth',inline:'center',block:'nearest'});},80);
@@ -1412,33 +983,17 @@ function doRollover(){
   const nk=nmk(curKey),mr=readings[curKey]||{};
   if(!prevOv[nk])prevOv[nk]={};
   meters.forEach(m=>{const r=mr[m.u];if(r&&r.cur!=null&&r.cur!=='')prevOv[nk][m.u]=parseFloat(r.cur);});
-  db.collection('prevOv').doc(nk).set(prevOv[nk],{merge:true}).catch(()=>{});
-  localStorage.setItem('emr_p',JSON.stringify(prevOv));
-  toast('✅ ROLLED OVER → '+ml(nk));
-  curKey=nk;buildTabs();render();listenFirestore(nk);
+  save();toast('✅ ROLLED OVER → '+ml(nk));curKey=nk;buildTabs();render();
 }
 
-// ══ TOWER TAG ══
+// ══ TOWER TAG CLASS ══
 function twClass(tw){
-  const t=String(tw).toUpperCase();
-  if(t==='ES')return'tw-es';if(t==='B1'||t==='B4')return'tw-b1';
-  if(t==='T1')return'tw-1';if(t==='T2')return'tw-2';if(t==='T3')return'tw-3';
-  if(t.includes('R'))return'tw-r';return'tw-x';
-}
-
-// ══ FLOOR GROUP LABELS ══
-function floorLabel(fl){
-  if(fl==='M')return'ชั้น M — M Spaces';
-  if(fl==='M2')return'ชั้น M2 — AHU / M2 Zone';
-  if(fl==='G')return'ชั้น G — Ground Floor';
-  if(fl==='B1')return'ชั้น B1 — Basement 1';
-  if(fl==='B4')return'ชั้น B4 — Basement 4';
-  if(fl==='P10')return'P10 — Parking / Telecom';
-  if(fl==='R2')return'R2 — Mechanical Floor 2';
-  if(fl==='R3')return'R3 — Mechanical Floor 3';
-  if(fl==='Roof')return'Roof — ดาดฟ้า';
-  if(fl>='2'&&fl<='9')return`ชั้น ${fl}`;
-  return`ชั้น ${fl}`;
+  const t=String(tw).trim();
+  if(t==='1')return'tw-1';
+  if(t==='2')return'tw-2';
+  if(t==='3')return'tw-3';
+  if(t.toUpperCase().includes('R3'))return'tw-r';
+  return'tw-x';
 }
 
 // ══ RENDER ══
@@ -1447,27 +1002,26 @@ function render(){
   const tw=document.getElementById('fTw').value;
   const st=document.getElementById('fSt').value;
   const mr=readings[curKey]||{};
+
   let list=meters.filter(m=>{
     const mq=!q||m.u.toLowerCase().includes(q)||m.t.toLowerCase().includes(q)||m.m.toLowerCase().includes(q)||m.fl.toLowerCase().includes(q)||m.tw.toLowerCase().includes(q);
-    const mt=!tw||m.tw===tw||(tw==='ES'&&m.tw==='ES')||(tw==='B1'&&(m.tw==='B1'||m.tw==='B4'))||(tw==='B4'&&m.tw==='B4')||(tw==='P10'&&m.tw==='P10');
+    const mt=!tw||m.tw===tw||(tw==='R3'&&m.fl==='R3');
     const r=mr[m.u],done=r&&r.cur!=null&&r.cur!=='';
     return mq&&mt&&(!st||(st==='done'?done:!done));
   });
+
   const wrap=document.getElementById('cards'),emp=document.getElementById('emp');
   if(!list.length){wrap.innerHTML='';emp.style.display='block';updateStats(mr);checkRollover();return;}
   emp.style.display='none';
+
   // Group by floor
-  const floorOrder=['M','M2','G','2','3','4','5','6','7','8','9','Roof','B1','B4','P10','11','12','14','15','16','17','18','19','20','21','22','23','24','25','26','27','28','29','R2','30','31','32','33','34','35','36','37','38','39','40','41','42','43','44','45','R3','46','47','48','49','50','51','52','53','54','55','56','57','58'];
-  const grouped={};
-  list.forEach(m=>{if(!grouped[m.fl])grouped[m.fl]=[];grouped[m.fl].push(m);});
-  const floors=floorOrder.filter(f=>grouped[f]);
-  // Add any floor not in order
-  Object.keys(grouped).forEach(f=>{if(!floors.includes(f))floors.push(f);});
+  const floors=['38','39','40','41','42','43','44','45','R3','46'];
   let html='';
   floors.forEach(fl=>{
-    const fl_list=grouped[fl];
-    if(!fl_list||!fl_list.length)return;
-    html+=`<div class="grp-hdr"><div class="grp-label">${floorLabel(fl)}</div><div class="grp-line"></div></div>`;
+    const fl_list=list.filter(m=>m.fl===fl);
+    if(!fl_list.length)return;
+    const lbl=fl==='R3'?'R3 — Mechanical Floor':`FLOOR ${fl}`;
+    html+=`<div class="grp-hdr"><div class="grp-label">${lbl}</div><div class="grp-line"></div></div>`;
     html+=fl_list.map(m=>cardHTML(m,mr)).join('');
   });
   wrap.innerHTML=html;
@@ -1480,86 +1034,89 @@ function cardHTML(m,mr){
   const hasCur=rec.cur!=null&&rec.cur!=='';
   const cur=hasCur?parseFloat(rec.cur):null;
   const usage=hasCur?(cur-prev)*m.ct:null;
-  let ucH='<span class="uc">— unit</span>';
-  if(usage!=null){const cls=usage>0?'up':usage<0?'dn':'';ucH=`<span class="uc ${cls}">${usage>0?'+':''}${usage.toLocaleString('th',{minimumFractionDigits:1,maximumFractionDigits:2})}</span>`;}
+  let chipH='<span class="usage-chip">— unit</span>';
+  if(usage!=null){
+    const cls=usage>0?'up':usage<0?'dn':'';
+    chipH=`<span class="usage-chip ${cls}">${usage>0?'+':''}${usage.toLocaleString('th',{minimumFractionDigits:1,maximumFractionDigits:2})}</span>`;
+  }
   const hasImg=!!(rec.img);
   const ctH=m.ct!==1?`<span class="ct-tag">CT×${m.ct}</span>`:'';
   const tc=twClass(m.tw);
-  const byTxt=rec.by?`<span style="font-size:9px;color:var(--text3);font-family:var(--mono)">✏️ ${rec.by}</span>`:'';
   return `<div class="card ${hasCur?'done':''}">
-<div class="ch">
-  <div class="chl">
-    <div class="ur">
-      <span class="ub">${esc(m.u)}</span>
-      <span class="tw-tag ${tc}">${esc(m.tw)}</span>
+<div class="card-head">
+  <div class="card-left">
+    <div class="unit-row">
+      <span class="unit-badge">${esc(m.u)}</span>
+      <span class="tower-tag ${tc}">T${esc(m.tw)}</span>
       ${ctH}
     </div>
-    <div class="ten" title="${esc(m.t)}">${esc(m.t)}</div>
-    <div class="mno">📟 ${esc(m.m)}</div>
+    <div class="tenant" title="${esc(m.t)}">${esc(m.t)}</div>
+    <div class="meter-no">📟 ${esc(m.m)}</div>
   </div>
-  <div class="chr">
-    <div class="sdot ${hasCur?'dot-ok':'dot-no'}"></div>
-    ${byTxt}
-    <button class="eb" onclick="openEdit(${meters.indexOf(m)})">EDIT</button>
+  <div class="card-right">
+    <div class="status-dot ${hasCur?'dot-ok':'dot-no'}"></div>
+    <button class="edit-btn" onclick="openEdit(${meters.indexOf(m)})">EDIT</button>
   </div>
 </div>
-<div class="pr">
-  <span class="prl">PREV ${ml(pmk(curKey))}</span>
-  <span class="prv">${fN(prev)}</span>
+<div class="prev-row">
+  <span class="prev-lbl">PREV ${ml(pmk(curKey))}</span>
+  <span class="prev-val">${fN(prev)}</span>
 </div>
-<div class="ia">
-  <div class="iw">
-    <span class="ii">⚡</span>
-    <input type="number" inputmode="decimal" class="mi ${hasCur?'ok':''}"
+<div class="inp-area">
+  <div class="inp-wrap">
+    <span class="inp-icon">⚡</span>
+    <input type="number" inputmode="decimal" class="meter-inp ${hasCur?'ok':''}"
       step="0.0001" placeholder="${fN(prev)}"
       value="${hasCur?rec.cur:''}"
       onchange="upd('${esc(m.u)}',this.value)"
       oninput="vInp(this,'${esc(m.u)}')"
       onfocus="this.select()">
   </div>
-  ${ucH}
+  ${chipH}
 </div>
-<div class="imgs">
+<div class="img-section">
   ${hasImg?`
   <div style="position:relative">
-    <div class="ipbig" onclick="viewImg('${esc(m.u)}')"><img src="${rec.img}" alt="meter" loading="lazy"></div>
-    <button class="idel" onclick="delImg('${esc(m.u)}')">✕ ลบรูป</button>
+    <div class="img-preview-big" onclick="viewImg('${esc(m.u)}')">
+      <img src="${rec.img}" alt="meter" loading="lazy">
+    </div>
+    <button class="img-delete-btn" onclick="delImg('${esc(m.u)}')">✕ ลบรูป</button>
   </div>
-  <div class="iact">
-    <button class="vfb" onclick="viewImg('${esc(m.u)}')">🔍 ดูภาพเต็ม</button>
-    <div class="cbtns" style="flex:1">
-      <label class="cb cam">📷 ถ่ายใหม่<input type="file" accept="image/*" capture="environment" onchange="handleImg(this,'${esc(m.u)}')"></label>
-      <label class="cb alb">🖼 อัลบั้ม<input type="file" accept="image/*" onchange="handleImg(this,'${esc(m.u)}')"></label>
+  <div class="img-action-row">
+    <button class="view-full" onclick="viewImg('${esc(m.u)}')">🔍 ดูภาพเต็ม</button>
+    <div class="cam-btns" style="flex:1">
+      <label class="cam-btn cam">📷 ถ่ายใหม่<input type="file" accept="image/*" capture="environment" onchange="handleImg(this,'${esc(m.u)}')"></label>
+      <label class="cam-btn alb">🖼 อัลบั้ม<input type="file" accept="image/*" onchange="handleImg(this,'${esc(m.u)}')"></label>
     </div>
   </div>
   `:`
-  <div class="nophoto"><div class="ni">📷</div><div class="nt">NO PHOTO</div></div>
-  <div class="cbtns">
-    <label class="cb cam">📷 ถ่ายรูปจากกล้อง<input type="file" accept="image/*" capture="environment" onchange="handleImg(this,'${esc(m.u)}')"></label>
-    <label class="cb alb">🖼 เลือกจากอัลบั้ม<input type="file" accept="image/*" onchange="handleImg(this,'${esc(m.u)}')"></label>
+  <div class="no-photo"><div class="ni">📷</div><div class="nt">NO PHOTO</div></div>
+  <div class="cam-btns">
+    <label class="cam-btn cam">📷 ถ่ายรูปจากกล้อง<input type="file" accept="image/*" capture="environment" onchange="handleImg(this,'${esc(m.u)}')"></label>
+    <label class="cam-btn alb">🖼 เลือกจากอัลบั้ม<input type="file" accept="image/*" onchange="handleImg(this,'${esc(m.u)}')"></label>
   </div>
   `}
 </div>
-<div class="br">
-  <input type="datetime-local" class="dti" value="${rec.dt||''}" onchange="updDT('${esc(m.u)}',this.value)">
-  <span class="loc" title="${esc(m.loc)}">📍 ${esc(m.loc)}</span>
+<div class="bot-row">
+  <input type="datetime-local" class="dt-inp" value="${rec.dt||''}" onchange="updDT('${esc(m.u)}',this.value)" title="วันที่/เวลาที่จด">
+  <span class="loc-txt" title="${esc(m.loc)}">📍 ${esc(m.loc)}</span>
 </div>
 </div>`;
 }
 
-function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');}
-function fN(v){return v==null?'—':Number(v).toLocaleString('th',{minimumFractionDigits:4,maximumFractionDigits:4});}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;')}
+function fN(v){return v==null?'—':Number(v).toLocaleString('th',{minimumFractionDigits:4,maximumFractionDigits:4})}
 
 // ══ UPDATE ══
-function nowDT(){const n=new Date();return`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}T${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`;}
+function nowDT(){const n=new Date();return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}T${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`}
 
 function upd(unit,val){
   if(!readings[curKey])readings[curKey]={};
   if(!readings[curKey][unit])readings[curKey][unit]={};
   readings[curKey][unit].cur=val;
   if(!readings[curKey][unit].dt)readings[curKey][unit].dt=nowDT();
-  readings[curKey][unit].by=currentUser?currentUser.email.split('@')[0]:'';
-  fbWrite(unit,readings[curKey][unit]);
+  // Write to Firebase (realtime — ทุกเครื่องจะรับอัตโนมัติ)
+  fbWrite(unit, readings[curKey][unit]);
   if(val)toast(`✅ ${unit} = ${parseFloat(val).toLocaleString('th',{minimumFractionDigits:4})}`);
 }
 function vInp(el,unit){
@@ -1572,7 +1129,7 @@ function updDT(unit,val){
   if(!readings[curKey])readings[curKey]={};
   if(!readings[curKey][unit])readings[curKey][unit]={};
   readings[curKey][unit].dt=val;
-  fbWrite(unit,readings[curKey][unit]);
+  fbWrite(unit, readings[curKey][unit]);
 }
 
 // ══ IMAGE ══
@@ -1588,13 +1145,13 @@ function handleImg(inp,unit){
       if(h>max&&h>w){w=Math.round(w*max/h);h=max;}
       canvas.width=w;canvas.height=h;
       canvas.getContext('2d').drawImage(img2,0,0,w,h);
-      const data=canvas.toDataURL('image/jpeg',0.78);
+      const data=canvas.toDataURL('image/jpeg',0.75);
       if(!readings[curKey])readings[curKey]={};
       if(!readings[curKey][unit])readings[curKey][unit]={};
       readings[curKey][unit].img=data;
       if(!readings[curKey][unit].dt)readings[curKey][unit].dt=nowDT();
-      readings[curKey][unit].by=currentUser?currentUser.email.split('@')[0]:'';
-      fbWrite(unit,readings[curKey][unit]);
+      // Write to Firebase (img เป็น base64 — เก็บได้ไม่เกิน 10MB/node)
+      fbWrite(unit, readings[curKey][unit]);
       render();
       toast('📷 ได้ภาพแล้ว — AI กำลังอ่านค่า...');
       await runOCR(data,unit);
@@ -1607,8 +1164,11 @@ function delImg(unit){
   if(!confirm('ลบรูปภาพนี้?'))return;
   if(readings[curKey]&&readings[curKey][unit]){
     delete readings[curKey][unit].img;
+    // ลบ img field ใน Firestore (ใช้ FieldValue.delete())
     const sk=safeKey(unit);
-    db.collection(fsPath(curKey)).doc(sk).update({img:firebase.firestore.FieldValue.delete()}).catch(()=>{});
+    db.collection('readings').doc(curKey).collection('units').doc(sk)
+      .update({ img: firebase.firestore.FieldValue.delete() })
+      .catch(()=>{});
   }
   render();toast('🗑 ลบรูปแล้ว');
 }
@@ -1630,7 +1190,8 @@ async function runOCR(imgData,unit){
     if(p.value!=null){
       if(!readings[curKey][unit].cur){
         readings[curKey][unit].cur=String(p.value);
-        fbWrite(unit,readings[curKey][unit]);render();
+        fbWrite(unit, readings[curKey][unit]);
+        render();
       }
       toast(`🤖 AI: ${p.value} (${p.confidence})`);
     }else toast('📷 บันทึกแล้ว — กรุณากรอกค่าเอง');
@@ -1654,12 +1215,51 @@ function updateStats(mr){
   document.getElementById('pfill').style.width=total?`${(done/total)*100}%`:'0%';
 }
 
+// ══ MANUAL RECONNECT ══
+function pushToSheet(){
+  toast('🔄 กำลัง reconnect Firestore...');
+  setSyncUI('connecting','CONNECTING...');
+  listenFirebase(curKey);
+}
+
+function doRollover(){
+  const nk=nmk(curKey),mr=readings[curKey]||{};
+  if(!prevOv[nk])prevOv[nk]={};
+  meters.forEach(m=>{
+    const r=mr[m.u];
+    if(r&&r.cur!=null&&r.cur!=='') prevOv[nk][m.u]=parseFloat(r.cur);
+  });
+  // บันทึก prevOv เดือนถัดไปไปยัง Firestore
+  fbWritePrevOv(nk, prevOv[nk]);
+  saveLocal();
+  toast('✅ ROLLED OVER → '+ml(nk));
+  curKey=nk;buildTabs();render();
+  listenFirebase(nk);
+}
+
+// ══ SETTINGS — ยังเปิด modal ได้ แต่ใช้ Firebase แล้ว ไม่ต้อง Sheet URL ══
+function openSettings(){
+  document.getElementById('settingsOv').classList.add('open');
+}
+function closeSettings(){document.getElementById('settingsOv').classList.remove('open')}
+function saveSettings(){
+  closeSettings();
+  toast('✅ Firebase พร้อมใช้งานแล้ว');
+}
+function viewScript(){
+  document.getElementById('scriptText').textContent=APPS_SCRIPT;
+  document.getElementById('scriptOv').classList.add('open');
+}
+function copyScript(){
+  navigator.clipboard.writeText(APPS_SCRIPT).then(()=>toast('📋 Copy Script แล้ว!'));
+}
+
 // ══ EDIT MODAL ══
 function openAdd(){
   editIdx=-1;document.getElementById('eTi').textContent='ADD METER';document.getElementById('eIc').textContent='➕';
   ['eU','eT','eM','eL'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('eC').value=1;document.getElementById('eB').value='';
-  document.getElementById('eTw').value='T1';document.getElementById('editOv').classList.add('open');
+  document.getElementById('eTw').value='1';document.getElementById('editOv').classList.add('open');
 }
 function openEdit(idx){
   editIdx=idx;const m=meters[idx];
@@ -1669,66 +1269,73 @@ function openEdit(idx){
   document.getElementById('eC').value=m.ct;document.getElementById('eB').value=m.b;
   document.getElementById('eL').value=m.loc;document.getElementById('editOv').classList.add('open');
 }
-function closeEdit(){document.getElementById('editOv').classList.remove('open');}
+function closeEdit(){document.getElementById('editOv').classList.remove('open')}
 function saveEdit(){
   const u=document.getElementById('eU').value.trim();
   const t=document.getElementById('eT').value.trim();
   const m2=document.getElementById('eM').value.trim();
   if(!u||!t||!m2){toast('⚠️ กรุณากรอกข้อมูลที่จำเป็น');return;}
   const tw=document.getElementById('eTw').value;
-  const fl=u.match(/^(\d{2})/)?u.substring(0,2):u.startsWith('R')?u.substring(0,2):'?';
-  const obj={u,t,tw,fl,m:m2,ct:parseInt(document.getElementById('eC').value)||1,b:parseFloat(document.getElementById('eB').value)||0,loc:document.getElementById('eL').value.trim()};
+  // Guess floor from unit
+  const fl2=u.match(/^(\d{2})/)?u.substring(0,2):u.toUpperCase().includes('R3')?'R3':'?';
+  const obj={u,t,tw,fl:fl2,m:m2,ct:parseInt(document.getElementById('eC').value)||1,
+    b:parseFloat(document.getElementById('eB').value)||0,
+    loc:document.getElementById('eL').value.trim()};
   if(editIdx>=0){meters[editIdx]=obj;toast('✅ แก้ไขแล้ว');}
   else{meters.push(obj);toast('✅ เพิ่มมิเตอร์แล้ว');}
-  closeEdit();render();
+  saveLocal();closeEdit();render();
 }
-
-// ══ SETTINGS ══
-function openSettings(){document.getElementById('settingsOv').classList.add('open');}
-function closeSettings(){document.getElementById('settingsOv').classList.remove('open');}
-function pushToSheet(){toast('🔄 Reconnecting...');setSyncUI('connecting','CONNECTING...');listenFirestore(curKey);}
 
 // ══ EXPORT ══
 function expCSV(){
   const mr=readings[curKey]||{},pk=pmk(curKey);
-  const h=['Unit','Tenant','Zone/Tower','Floor','Meter No.','CT',`Prev (${ml(pk)})`,`Current (${ml(curKey)})`,'Units Used','DateTime','Recorded By','Location'];
+  const h=['Unit','Tenant','Tower','Floor','Meter No.','CT',`Prev (${ml(pk)})`,`Current (${ml(curKey)})`,'Units Used','DateTime','Location'];
   const rows=meters.map(m=>{
     const r=mr[m.u]||{},hc=r.cur!=null&&r.cur!=='';
-    const prev=getPrev(m.u,curKey),usage=hc?((parseFloat(r.cur)-prev)*m.ct).toFixed(4):'';
-    return[m.u,m.t,m.tw,m.fl,m.m,m.ct,prev,hc?r.cur:'',usage,r.dt||'',r.by||'',m.loc].map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',');
+    const prev=getPrev(m.u,curKey);
+    const usage=hc?((parseFloat(r.cur)-prev)*m.ct).toFixed(4):'';
+    return[m.u,m.t,m.tw,m.fl,m.m,m.ct,prev,hc?r.cur:'',usage,r.dt||'',m.loc].map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',');
   });
   const csv='\uFEFF'+[h.join(','),...rows].join('\n');
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
-  a.download=`EMR_${curKey}.csv`;a.click();toast('📥 Export CSV แล้ว');
+  a.download=`tower_meter_${curKey}.csv`;a.click();toast('📥 Export CSV แล้ว');
 }
 function copyS(){
   const mr=readings[curKey]||{};
   const rows=meters.map(m=>{
     const r=mr[m.u]||{},hc=r.cur!=null&&r.cur!=='';
-    const prev=getPrev(m.u,curKey),usage=hc?((parseFloat(r.cur)-prev)*m.ct).toFixed(4):'';
-    return[m.u,m.t,m.tw,m.fl,m.m,m.ct,prev,hc?r.cur:'',usage,r.dt||'',r.by||'',m.loc].join('\t');
+    const prev=getPrev(m.u,curKey);
+    const usage=hc?((parseFloat(r.cur)-prev)*m.ct).toFixed(4):'';
+    return[m.u,m.t,m.tw,m.fl,m.m,m.ct,prev,hc?r.cur:'',usage,r.dt||'',m.loc].join('\t');
   });
   navigator.clipboard.writeText(rows.join('\n')).then(()=>toast('📋 Copy แล้ว! วาง Sheets ได้เลย'));
+}
+function clrMonth(){
+  if(!confirm(`ล้างค่าเดือน ${ml(curKey)} ทั้งหมด?`))return;
+  readings[curKey]={};
+  fbDeleteMonth().then(()=>toast('🗑 ล้างแล้ว — ลบออกจาก Firestore แล้ว')).catch(()=>{});
+  render();
 }
 
 // ══ TOAST ══
 let tt;
-function toast(msg){
-  const t=document.getElementById('toast');
-  t.textContent=msg;t.className='toast show';
-  clearTimeout(tt);tt=setTimeout(()=>t.className='toast',3200);
-}
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.className='toast show';clearTimeout(tt);tt=setTimeout(()=>t.className='toast',3200);}
 
 // Enter = next input
 document.addEventListener('keydown',e=>{
-  if(e.key==='Enter'&&e.target.classList.contains('mi')){
-    const all=[...document.querySelectorAll('.mi')],i=all.indexOf(e.target);
+  if(e.key==='Enter'&&e.target.classList.contains('meter-inp')){
+    const all=[...document.querySelectorAll('.meter-inp')],i=all.indexOf(e.target);
     if(i<all.length-1){all[i+1].focus();all[i+1].scrollIntoView({behavior:'smooth',block:'center'});}
   }
 });
-['editOv','settingsOv'].forEach(id=>{
-  const el=document.getElementById(id);
-  if(el)el.addEventListener('click',e=>{if(e.target===el)el.classList.remove('open');});
+
+// Close modals on backdrop
+['editOv','settingsOv','scriptOv'].forEach(id=>{
+  document.getElementById(id).addEventListener('click',e=>{if(e.target===document.getElementById(id))document.getElementById(id).classList.remove('open');});
 });
-</script></body></html>
+
+init();
+</script>
+</body>
+</html>
